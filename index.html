@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>整骨院 姿勢AI分析</title>
   
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/vision_bundle.js" crossorigin="anonymous"></script>
-  
   <style>
     body { font-family: sans-serif; text-align: center; margin: 20px; background-color: #f0f2f5; }
     h1 { color: #333; font-size: 1.5rem; }
@@ -19,12 +17,19 @@
 <body>
 
   <h1>姿勢推定（フロントエンド完結版）</h1>
-  <div id="status">システム初期化中...</div>
+  <div id="status">ライブラリをダウンロード中（10〜15秒かかる場合があります）...</div>
   
   <div id="container">
     <video id="webcam" autoplay playsinline muted></video>
     <canvas id="output_canvas"></canvas>
   </div>
+
+  <script 
+    id="mediapipe-script"
+    src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/vision_bundle.js" 
+    crossorigin="anonymous"
+    onload="startSystem()"
+  </script>
 
   <script>
     const video = document.getElementById("webcam");
@@ -33,18 +38,25 @@
     const statusDiv = document.getElementById("status");
     let poseLandmarker = undefined;
 
+    // ① ライブラリの読み込みが「完全に終わったら」ここが実行される
+    function startSystem() {
+      statusDiv.innerText = "ライブラリ読み込み成功！AIを初期化中...";
+      initializeAI();
+    }
+
     async function initializeAI() {
       try {
-        statusDiv.innerText = "AIモデルの準備中...";
-        
-        // ブラウザ（window）が認識しているオブジェクトを安全に取得
+        // window直下のオブジェクトをチェック
         const visionTasks = window.tasksVision || window.mpTasksVision;
         
         if (!visionTasks) {
-          throw new Error("MediaPipeライブラリの読み込みに失敗しました。ページを再読み込みしてください。");
+          // 万が一認識できなかった場合の最終防衛策（直前でもう一度探す）
+          statusDiv.innerText = "再確認中...";
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1秒待つ
+          return initializeAI();
         }
 
-        statusDiv.innerText = "設定ファイルをダウンロード中...";
+        statusDiv.innerText = "設定ファイルをロード中...";
         const vision = await visionTasks.FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
         );
@@ -71,7 +83,7 @@
       try {
         const constraints = {
           video: { 
-            facingMode: "environment", // 背面カメラ（インカメラにする場合は "user"）
+            facingMode: "environment", 
             width: { ideal: 640 }, 
             height: { ideal: 480 } 
           }
@@ -81,15 +93,12 @@
         
         video.addEventListener("loadeddata", () => {
           statusDiv.innerText = "AI動作中！体を映してください";
-          
-          // カメラの実際の解像度に合わせてキャンバスをリサイズ
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
-          
           predictLoop();
         });
       } catch (error) {
-        statusDiv.innerText = "カメラ起動エラー。iPhoneの「設定 ＞ Safari」でカメラを許可してください。";
+        statusDiv.innerText = "カメラ起動エラー。iPhoneの設定でSafariのカメラを許可してください。";
       }
     }
 
@@ -99,31 +108,32 @@
       const startTimeMs = performance.now();
       const results = poseLandmarker.detectForVideo(video, startTimeMs);
       
-      // 毎フレーム画面をクリア
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       if (results.landmarks && results.landmarks.length > 0) {
-        // 1人目の骨格データを取得
         const landmarks = results.landmarks[0];
         
         // 関節の点を青色で描画
         landmarks.forEach(landmark => {
           ctx.beginPath();
           ctx.arc(landmark.x * canvas.width, landmark.y * canvas.height, 6, 0, 2 * Math.PI);
-          ctx.fillStyle = "#007aff"; // iPhoneっぽい青色
+          ctx.fillStyle = "#007aff"; 
           ctx.fill();
           ctx.strokeStyle = "white";
           ctx.lineWidth = 2;
           ctx.stroke();
         });
       }
-      
-      // 次のフレームをループ
       requestAnimationFrame(predictLoop);
     }
 
-    // ページの読み込みが完全に終わってからAIを初期化する
-    window.addEventListener('load', initializeAI);
+    // 最初のタイムアウト監視（万が一 onload がすり抜けた場合の保険）
+    setTimeout(() => {
+      const visionTasks = window.tasksVision || window.mpTasksVision;
+      if (visionTasks && !poseLandmarker && statusDiv.innerText.includes("ダウンロード中")) {
+        startSystem();
+      }
+    }, 3000);
   </script>
 </body>
 </html>
