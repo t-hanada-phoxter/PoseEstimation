@@ -13,23 +13,18 @@
     canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
     #status { padding: 12px; background: #fff; margin-bottom: 15px; font-weight: bold; border-radius: 6px; border: 1px solid #ddd; }
   </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/vision_bundle.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-  <h1>姿勢推定2（フロントエンド完結版）</h1>
-  <div id="status">ライブラリをダウンロード中（10〜15秒かかる場合があります）...</div>
+  <h1>姿勢推定（フロントエンド完結版）</h1>
+  <div id="status">AIシステムを起動しています...</div>
   
   <div id="container">
     <video id="webcam" autoplay playsinline muted></video>
     <canvas id="output_canvas"></canvas>
   </div>
-
-  <script 
-    id="mediapipe-script"
-    src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/vision_bundle.js" 
-    crossorigin="anonymous"
-    onload="startSystem()"
-  </script>
 
   <script>
     const video = document.getElementById("webcam");
@@ -37,26 +32,30 @@
     const ctx = canvas.getContext("2d");
     const statusDiv = document.getElementById("status");
     let poseLandmarker = undefined;
+    let retryCount = 0;
 
-    // ① ライブラリの読み込みが「完全に終わったら」ここが実行される
-    function startSystem() {
-      statusDiv.innerText = "ライブラリ読み込み成功！AIを初期化中...";
-      initializeAI();
+    // 定期的にライブラリの読み込み成功をチェックする関数（生存確認ループ）
+    function checkLibraryAndStart() {
+      // window直下のオブジェクトを確認
+      const visionTasks = window.tasksVision || window.mpTasksVision;
+      
+      if (visionTasks) {
+        statusDiv.innerText = "ライブラリ接続成功！モデルをロード中...";
+        initializeAI(visionTasks);
+      } else {
+        retryCount++;
+        statusDiv.innerText = `AIの準備中... (${retryCount}秒経過)`;
+        
+        if (retryCount > 15) {
+          statusDiv.innerText = "読み込みに時間がかかっています。電波の良い場所でページを再読み込みしてください。";
+        }
+        // 1秒後に再チェック
+        setTimeout(checkLibraryAndStart, 1000);
+      }
     }
 
-    async function initializeAI() {
+    async function initializeAI(visionTasks) {
       try {
-        // window直下のオブジェクトをチェック
-        const visionTasks = window.tasksVision || window.mpTasksVision;
-        
-        if (!visionTasks) {
-          // 万が一認識できなかった場合の最終防衛策（直前でもう一度探す）
-          statusDiv.innerText = "再確認中...";
-          await new Promise(resolve => setTimeout(resolve, 1000)); // 1秒待つ
-          return initializeAI();
-        }
-
-        statusDiv.innerText = "設定ファイルをロード中...";
         const vision = await visionTasks.FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
         );
@@ -127,13 +126,8 @@
       requestAnimationFrame(predictLoop);
     }
 
-    // 最初のタイムアウト監視（万が一 onload がすり抜けた場合の保険）
-    setTimeout(() => {
-      const visionTasks = window.tasksVision || window.mpTasksVision;
-      if (visionTasks && !poseLandmarker && statusDiv.innerText.includes("ダウンロード中")) {
-        startSystem();
-      }
-    }, 3000);
+    // ページが開かれたら、すぐに生存確認ループを開始
+    checkLibraryAndStart();
   </script>
 </body>
 </html>
