@@ -1,113 +1,509 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>整骨院 姿勢AI分析</title>
-  
   <style>
-    body { font-family: sans-serif; text-align: center; margin: 20px; background-color: #f0f2f5; }
-    h1 { color: #333; font-size: 1.5rem; }
-    #container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    video, canvas { width: 100%; height: auto; display: block; }
-    canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
-    #status { padding: 12px; background: #fff; margin-bottom: 15px; font-weight: bold; border-radius: 6px; border: 1px solid #ddd; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #fff;
+      min-height: 100vh;
+    }
+
+    /* ── スクリーン管理 ── */
+    .screen { display: none; flex-direction: column; min-height: 100vh; }
+    .screen.active { display: flex; }
+
+    /* ── ローディング ── */
+    #loadingScreen { justify-content: center; align-items: center; gap: 20px; }
+    .spinner {
+      width: 52px; height: 52px;
+      border: 4px solid rgba(255,255,255,0.15);
+      border-top-color: #4fc3f7;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loadingStatus { font-size: 0.95rem; color: #aaa; text-align: center; padding: 0 24px; }
+
+    /* ── カメラ画面 ── */
+    .mode-banner {
+      padding: 13px;
+      text-align: center;
+      font-size: 0.95rem;
+      font-weight: bold;
+      letter-spacing: 0.03em;
+    }
+    .mode-banner.before { background: #1565c0; }
+    .mode-banner.after  { background: #2e7d32; }
+
+    #videoContainer { position: relative; width: 100%; flex: 1; background: #000; }
+    video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    #overlayCanvas {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* ── リアルタイム指標パネル ── */
+    #metricsPanel {
+      background: rgba(0,0,0,0.75);
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    .metric-item { text-align: center; }
+    .metric-label { font-size: 0.62rem; color: #888; margin-bottom: 2px; }
+    .metric-value { font-size: 1.15rem; font-weight: bold; }
+    .good  { color: #81c784; }
+    .warn  { color: #ffb74d; }
+    .bad   { color: #e57373; }
+    .neutral { color: #fff; }
+
+    #captureBtn {
+      margin: 14px 16px;
+      padding: 15px;
+      border-radius: 50px;
+      border: none;
+      font-size: 1.05rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    #captureBtn:active { opacity: 0.75; }
+    #captureBtn.before { background: #1976d2; color: #fff; }
+    #captureBtn.after  { background: #388e3c; color: #fff; }
+
+    /* ── 比較レポート画面 ── */
+    #comparisonScreen { padding: 16px; gap: 16px; overflow-y: auto; }
+
+    .comp-header { text-align: center; }
+    .comp-header h2 { font-size: 1.25rem; font-weight: bold; }
+    .comp-header p  { font-size: 0.8rem; color: #888; margin-top: 4px; }
+
+    .image-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .capture-card { text-align: center; }
+    .capture-card img { width: 100%; border-radius: 8px; display: block; }
+    .capture-label {
+      font-size: 0.8rem; font-weight: bold;
+      margin-top: 6px; padding: 4px 8px; border-radius: 4px; display: inline-block;
+    }
+    .before-label { background: #1565c0; }
+    .after-label  { background: #2e7d32; }
+
+    .score-card {
+      background: rgba(255,255,255,0.07);
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+    }
+    .score-card .sub  { font-size: 0.82rem; color: #888; margin-bottom: 6px; }
+    .score-number { font-size: 3rem; font-weight: bold; line-height: 1; }
+    .score-note   { font-size: 0.85rem; margin-top: 6px; color: #ccc; }
+    .improved { color: #81c784; }
+    .worsened { color: #e57373; }
+    .unchanged { color: #fff; }
+
+    .metrics-table { background: rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; }
+    .tbl-head {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+      padding: 9px 12px;
+      background: rgba(255,255,255,0.08);
+      font-size: 0.7rem; color: #888; font-weight: bold;
+    }
+    .tbl-row {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+      padding: 10px 12px;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      font-size: 0.82rem; align-items: center;
+    }
+    .tbl-row div { text-align: center; }
+    .tbl-row div:first-child { text-align: left; font-size: 0.78rem; color: #ccc; }
+    .delta-pos { color: #81c784; font-weight: bold; }
+    .delta-neg { color: #e57373; font-weight: bold; }
+
+    .reset-btn {
+      padding: 15px; border-radius: 50px; border: none;
+      font-size: 0.95rem; font-weight: bold; cursor: pointer;
+      background: rgba(255,255,255,0.12); color: #fff; width: 100%;
+    }
+    .reset-btn:active { opacity: 0.75; }
   </style>
 </head>
 <body>
 
-  <h1>姿勢推定（フロントエンド完結版）</h1>
-  <div id="status">AIシステムを起動しています...</div>
-  
-  <div id="container">
-    <video id="webcam" autoplay playsinline muted></video>
-    <canvas id="output_canvas"></canvas>
+  <!-- ローディング -->
+  <div id="loadingScreen" class="screen active">
+    <div class="spinner"></div>
+    <div id="loadingStatus">AIシステムを起動しています...</div>
+  </div>
+
+  <!-- カメラ画面 -->
+  <div id="cameraScreen" class="screen">
+    <div id="modeBanner" class="mode-banner before">📷 治療前の姿勢を撮影してください</div>
+    <div id="videoContainer">
+      <video id="webcam" autoplay playsinline muted></video>
+      <canvas id="overlayCanvas"></canvas>
+    </div>
+    <div id="metricsPanel">
+      <div class="metric-item">
+        <div class="metric-label">頭部前傾角</div>
+        <div class="metric-value neutral" id="m-head">--</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-label">体幹傾斜角</div>
+        <div class="metric-value neutral" id="m-trunk">--</div>
+      </div>
+      <div class="metric-item">
+        <div class="metric-label">肩の水平差</div>
+        <div class="metric-value neutral" id="m-shoulder">--</div>
+      </div>
+    </div>
+    <button id="captureBtn" class="before">治療前を保存する</button>
+  </div>
+
+  <!-- 比較レポート -->
+  <div id="comparisonScreen" class="screen">
+    <div class="comp-header">
+      <h2>姿勢改善レポート</h2>
+      <p>治療前後の姿勢データを比較しています</p>
+    </div>
+
+    <div class="image-row">
+      <div class="capture-card">
+        <img id="beforeImg" alt="治療前">
+        <div class="capture-label before-label">治療前</div>
+      </div>
+      <div class="capture-card">
+        <img id="afterImg" alt="治療後">
+        <div class="capture-label after-label">治療後</div>
+      </div>
+    </div>
+
+    <div class="score-card">
+      <div class="sub">総合改善スコア</div>
+      <div class="score-number" id="totalScore">--</div>
+      <div class="score-note" id="scoreNote"></div>
+    </div>
+
+    <div class="metrics-table">
+      <div class="tbl-head">
+        <div>指標</div>
+        <div>治療前</div>
+        <div>治療後</div>
+        <div>変化</div>
+      </div>
+      <div id="metricsTableBody"></div>
+    </div>
+
+    <button class="reset-btn" id="resetBtn">🔄 もう一度測定する</button>
   </div>
 
   <script type="module">
-    // 最新のMediaPipeライブラリを読み込み
-    import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8";
+    import { PoseLandmarker, FilesetResolver } from
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8";
 
-    const video = document.getElementById("webcam");
-    const canvas = document.getElementById("output_canvas");
-    const ctx = canvas.getContext("2d");
-    const statusDiv = document.getElementById("status");
-    let poseLandmarker = undefined;
+    // ── 状態 ────────────────────────────────────────────────
+    let poseLandmarker = null;
+    let mode = 'before';
+    let beforeData = null;
+    let afterData  = null;
+    let currentMetrics = null;
+    let animFrameId = null;
 
-    async function initializeAI() {
-      try {
-        statusDiv.innerText = "設定ファイルをダウンロード中...";
-        // Wasm（コアエンジン）の読み込み先
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
-        );
-        
-        statusDiv.innerText = "骨格抽出モデルをロード中（数秒かかります）...";
-        
-        // 【修正】エラーの原因だったURLを、最も安定して取得できるCDNのURLに変更しました
-        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
-            delegate: "CPU"
-          },
-          runningMode: "VIDEO",
-          numPoses: 1
-        });
-        
-        statusDiv.innerText = "カメラを起動しています...";
-        startCamera();
-      } catch (error) {
-        statusDiv.innerText = "エラー発生: " + error.message;
-        console.error(error);
-      }
+    // ── DOM ─────────────────────────────────────────────────
+    const video       = document.getElementById('webcam');
+    const canvas      = document.getElementById('overlayCanvas');
+    const ctx         = canvas.getContext('2d');
+    const loadingStatus = document.getElementById('loadingStatus');
+    const modeBanner  = document.getElementById('modeBanner');
+    const captureBtn  = document.getElementById('captureBtn');
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
     }
 
-    async function startCamera() {
-      try {
-        const constraints = {
-          video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } }
-        };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = stream;
-        
-        video.addEventListener("loadeddata", () => {
-          statusDiv.innerText = "AI動作中！体を映してください";
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          predictLoop();
-        });
-      } catch (error) {
-        statusDiv.innerText = "カメラ起動エラー。カメラのアクセス権を許可してください。";
-      }
+    // ── スケルトン接続定義 ──────────────────────────────────
+    const CONNECTIONS = [
+      // 胴体
+      [11,12],[11,23],[12,24],[23,24],
+      // 左腕
+      [11,13],[13,15],
+      // 右腕
+      [12,14],[14,16],
+      // 左脚
+      [23,25],[25,27],
+      // 右脚
+      [24,26],[26,28],
+      // 首 (耳→肩)
+      [7,11],[8,12],
+      // 顔中心→肩中心 (近似)
+      [0,11],[0,12],
+    ];
+
+    // ── 姿勢指標計算 ────────────────────────────────────────
+    function angleDeg(a, b, c) {
+      // 点bにおける角度（ba→bc）
+      const ba = { x: a.x - b.x, y: a.y - b.y };
+      const bc = { x: c.x - b.x, y: c.y - b.y };
+      const dot = ba.x * bc.x + ba.y * bc.y;
+      const mag = Math.hypot(ba.x, ba.y) * Math.hypot(bc.x, bc.y);
+      if (mag === 0) return 0;
+      return Math.acos(Math.min(1, Math.max(-1, dot / mag))) * 180 / Math.PI;
     }
 
+    function midpoint(a, b) {
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+
+    function calcMetrics(lm) {
+      const lEar = lm[7];  const rEar = lm[8];
+      const lSho = lm[11]; const rSho = lm[12];
+      const lHip = lm[23]; const rHip = lm[24];
+
+      const earMid = midpoint(lEar, rEar);
+      const shoMid = midpoint(lSho, rSho);
+      const hipMid = midpoint(lHip, rHip);
+
+      // 身長プロキシ（肩〜股関節距離）で正規化
+      const bodyH = Math.hypot(shoMid.x - hipMid.x, shoMid.y - hipMid.y);
+      if (bodyH < 0.01) return null;
+
+      // 1. 頭部前傾角: 耳中点→肩中点→股関節中点 の角度（180°に近いほど良好）
+      const headAngle = angleDeg(earMid, shoMid, hipMid);
+
+      // 2. 体幹傾斜角: 肩中点→股関節 を垂直基準で測定（0°に近いほど直立）
+      const verticalRef = { x: shoMid.x, y: shoMid.y - 1 };
+      const trunkAngle = angleDeg(verticalRef, shoMid, hipMid);
+
+      // 3. 肩の水平差: 左右の肩の高さの差を身長比で正規化（0%に近いほど水平）
+      const shoulderDiff = Math.abs(lSho.y - rSho.y) / bodyH * 100;
+
+      return {
+        headForward:   Math.round(headAngle),
+        trunk:         Math.round(trunkAngle),
+        shoulderLevel: Math.round(shoulderDiff),
+      };
+    }
+
+    // 0〜100点の総合スコア
+    function calcPostureScore(m) {
+      // 頭部: 180°=100pt, 120°=0pt
+      const headScore     = Math.max(0, Math.min(100, (m.headForward - 120) / 60 * 100));
+      // 体幹: 0°=100pt, 30°=0pt
+      const trunkScore    = Math.max(0, Math.min(100, (1 - m.trunk / 30) * 100));
+      // 肩水平: 0%=100pt, 10%=0pt
+      const shoulderScore = Math.max(0, Math.min(100, (1 - m.shoulderLevel / 10) * 100));
+      return Math.round(headScore * 0.4 + trunkScore * 0.4 + shoulderScore * 0.2);
+    }
+
+    // ── 描画 ────────────────────────────────────────────────
+    function drawSkeleton(lm) {
+      const W = canvas.width;
+      const H = canvas.height;
+
+      // 接続線
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(79, 195, 247, 0.85)';
+      CONNECTIONS.forEach(([i, j]) => {
+        if (!lm[i] || !lm[j]) return;
+        ctx.beginPath();
+        ctx.moveTo(lm[i].x * W, lm[i].y * H);
+        ctx.lineTo(lm[j].x * W, lm[j].y * H);
+        ctx.stroke();
+      });
+
+      // 関節点
+      lm.forEach(lmk => {
+        ctx.beginPath();
+        ctx.arc(lmk.x * W, lmk.y * H, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.strokeStyle = '#4fc3f7';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+    }
+
+    function setMetricEl(id, text, cls) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = 'metric-value ' + cls;
+    }
+
+    function updateMetricsUI(m) {
+      setMetricEl('m-head',
+        m.headForward + '°',
+        m.headForward >= 160 ? 'good' : m.headForward >= 140 ? 'warn' : 'bad');
+      setMetricEl('m-trunk',
+        m.trunk + '°',
+        m.trunk <= 5 ? 'good' : m.trunk <= 15 ? 'warn' : 'bad');
+      setMetricEl('m-shoulder',
+        m.shoulderLevel + '%',
+        m.shoulderLevel <= 3 ? 'good' : m.shoulderLevel <= 6 ? 'warn' : 'bad');
+    }
+
+    function clearMetricsUI() {
+      ['m-head','m-trunk','m-shoulder'].forEach(id => setMetricEl(id, '--', 'neutral'));
+    }
+
+    // ── スナップショット取得 ─────────────────────────────────
+    function captureSnapshot() {
+      const tmp = document.createElement('canvas');
+      tmp.width  = canvas.width;
+      tmp.height = canvas.height;
+      const tmpCtx = tmp.getContext('2d');
+      tmpCtx.drawImage(video,  0, 0, tmp.width, tmp.height);
+      tmpCtx.drawImage(canvas, 0, 0);
+      return {
+        imageUrl: tmp.toDataURL('image/jpeg', 0.82),
+        metrics:  { ...currentMetrics },
+        score:    calcPostureScore(currentMetrics),
+      };
+    }
+
+    // ── 推定ループ ───────────────────────────────────────────
     function predictLoop() {
       if (!poseLandmarker) return;
-      
-      const startTimeMs = performance.now();
-      const results = poseLandmarker.detectForVideo(video, startTimeMs);
-      
+      const results = poseLandmarker.detectForVideo(video, performance.now());
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      if (results.landmarks && results.landmarks.length > 0) {
-        const landmarks = results.landmarks[0];
-        
-        // 関節の点を青色で描画
-        landmarks.forEach(landmark => {
-          ctx.beginPath();
-          ctx.arc(landmark.x * canvas.width, landmark.y * canvas.height, 6, 0, 2 * Math.PI);
-          ctx.fillStyle = "#007aff"; 
-          ctx.fill();
-          ctx.strokeStyle = "white";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        });
+
+      if (results.landmarks?.length > 0) {
+        const lm = results.landmarks[0];
+        drawSkeleton(lm);
+        const m = calcMetrics(lm);
+        if (m) {
+          currentMetrics = m;
+          updateMetricsUI(m);
+        }
+      } else {
+        currentMetrics = null;
+        clearMetricsUI();
       }
-      requestAnimationFrame(predictLoop);
+
+      animFrameId = requestAnimationFrame(predictLoop);
     }
 
-    // 起動
-    initializeAI();
+    // ── 比較レポート表示 ─────────────────────────────────────
+    function showComparison() {
+      cancelAnimationFrame(animFrameId);
+
+      document.getElementById('beforeImg').src = beforeData.imageUrl;
+      document.getElementById('afterImg').src  = afterData.imageUrl;
+
+      const delta = afterData.score - beforeData.score;
+      const scoreEl = document.getElementById('totalScore');
+      const noteEl  = document.getElementById('scoreNote');
+      scoreEl.textContent = (delta >= 0 ? '+' : '') + delta + 'pt';
+      if (delta > 0) {
+        scoreEl.className = 'score-number improved';
+        noteEl.textContent = '姿勢が改善されました！';
+      } else if (delta < 0) {
+        scoreEl.className = 'score-number worsened';
+        noteEl.textContent = '姿勢スコアが低下しました。';
+      } else {
+        scoreEl.className = 'score-number unchanged';
+        noteEl.textContent = '変化はほぼ同じです。';
+      }
+
+      const METRICS_DEF = [
+        { label: '頭部前傾角',  key: 'headForward',   unit: '°', higherIsBetter: true  },
+        { label: '体幹傾斜角',  key: 'trunk',          unit: '°', higherIsBetter: false },
+        { label: '肩の水平差',  key: 'shoulderLevel',  unit: '%', higherIsBetter: false },
+      ];
+      document.getElementById('metricsTableBody').innerHTML = METRICS_DEF.map(def => {
+        const bv = beforeData.metrics[def.key];
+        const av = afterData.metrics[def.key];
+        const d  = av - bv;
+        const improved = def.higherIsBetter ? d > 0 : d < 0;
+        const cls = (d === 0) ? '' : improved ? 'delta-pos' : 'delta-neg';
+        return `<div class="tbl-row">
+          <div>${def.label}</div>
+          <div>${bv}${def.unit}</div>
+          <div>${av}${def.unit}</div>
+          <div class="${cls}">${d > 0 ? '+' : ''}${d}${def.unit}</div>
+        </div>`;
+      }).join('');
+
+      showScreen('comparisonScreen');
+    }
+
+    // ── カメラ起動 ───────────────────────────────────────────
+    async function startCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+      video.srcObject = stream;
+      await new Promise(resolve => video.addEventListener('loadeddata', resolve, { once: true }));
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+
+    // ── 初期化 ───────────────────────────────────────────────
+    async function init() {
+      try {
+        loadingStatus.textContent = '設定ファイルをダウンロード中...';
+        const vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm'
+        );
+
+        loadingStatus.textContent = '骨格抽出モデルをロード中（数秒かかります）...';
+        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
+            delegate: 'CPU'
+          },
+          runningMode: 'VIDEO',
+          numPoses: 1
+        });
+
+        loadingStatus.textContent = 'カメラを起動しています...';
+        await startCamera();
+        showScreen('cameraScreen');
+        predictLoop();
+      } catch (err) {
+        loadingStatus.textContent = 'エラー発生: ' + err.message;
+        console.error(err);
+      }
+    }
+
+    // ── イベント ─────────────────────────────────────────────
+    captureBtn.addEventListener('click', () => {
+      if (!currentMetrics) {
+        alert('人体が検出されていません。カメラに全身を映してください。');
+        return;
+      }
+      if (mode === 'before') {
+        beforeData = captureSnapshot();
+        mode = 'after';
+        modeBanner.textContent = '📷 治療後の姿勢を撮影してください';
+        modeBanner.className = 'mode-banner after';
+        captureBtn.textContent = '治療後を保存する';
+        captureBtn.className = 'after';
+      } else {
+        afterData = captureSnapshot();
+        showComparison();
+      }
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      mode = 'before';
+      beforeData = null;
+      afterData  = null;
+      modeBanner.textContent = '📷 治療前の姿勢を撮影してください';
+      modeBanner.className = 'mode-banner before';
+      captureBtn.textContent = '治療前を保存する';
+      captureBtn.className = 'before';
+      showScreen('cameraScreen');
+      predictLoop();
+    });
+
+    init();
   </script>
 </body>
 </html>
