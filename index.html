@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <title>整骨院 姿勢AI分析</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>姿勢AI分析</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -18,27 +18,32 @@
     .screen.active { display: flex; }
 
     /* ── ローディング ── */
-    #loadingScreen { justify-content: center; align-items: center; gap: 20px; }
+    #loadingScreen { justify-content: center; align-items: center; gap: 20px; background: #fff; }
+    #loadingLogo { width: 120px; height: auto; }
     .spinner {
       width: 52px; height: 52px;
-      border: 4px solid rgba(255,255,255,0.15);
-      border-top-color: #4fc3f7;
+      border: 4px solid rgba(0,0,0,0.1);
+      border-top-color: #1976d2;
       border-radius: 50%;
       animation: spin 0.9s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    #loadingStatus { font-size: 0.95rem; color: #aaa; text-align: center; padding: 0 24px; }
+    #loadingStatus { font-size: 0.95rem; color: #666; text-align: center; padding: 0 24px; }
 
     /* ── カメラ画面 ── */
     .mode-banner {
-      padding: 13px;
-      text-align: center;
+      padding: 10px 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
       font-size: 0.95rem;
       font-weight: bold;
       letter-spacing: 0.03em;
     }
     .mode-banner.before { background: #1565c0; }
     .mode-banner.after  { background: #2e7d32; }
+    .banner-logo { width: 28px; height: 28px; object-fit: contain; border-radius: 4px; }
 
     #videoContainer { position: relative; width: 100%; flex: 1; background: #000; }
     video { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -66,6 +71,7 @@
 
     #captureBtn {
       margin: 14px 16px;
+      margin-bottom: max(14px, env(safe-area-inset-bottom));
       padding: 15px;
       border-radius: 50px;
       border: none;
@@ -138,13 +144,14 @@
 
   <!-- ローディング -->
   <div id="loadingScreen" class="screen active">
+    <img id="loadingLogo" src="miya.png" alt="ロゴ">
     <div class="spinner"></div>
     <div id="loadingStatus">AIシステムを起動しています...</div>
   </div>
 
   <!-- カメラ画面 -->
   <div id="cameraScreen" class="screen">
-    <div id="modeBanner" class="mode-banner before">📷 治療前の姿勢を撮影してください</div>
+    <div id="modeBanner" class="mode-banner before"><img src="miya.png" class="banner-logo" alt="">治療前の姿勢を撮影してください</div>
     <div id="videoContainer">
       <video id="webcam" autoplay playsinline muted></video>
       <canvas id="overlayCanvas"></canvas>
@@ -277,16 +284,19 @@
       // 1. 頭部前傾角: 耳中点→肩中点→股関節中点 の角度（180°に近いほど良好）
       const headAngle = angleDeg(earMid, shoMid, hipMid);
 
-      // 2. 体幹傾斜角: 肩中点→股関節 を垂直基準で測定（0°に近いほど直立）
+      // 2. 体幹傾斜角: 肩中点→股関節 を垂直基準で測定（0°=直立、+前傾/-後傾）
       const verticalRef = { x: shoMid.x, y: shoMid.y - 1 };
-      const trunkAngle = angleDeg(verticalRef, shoMid, hipMid);
+      const trunkAbs = angleDeg(verticalRef, shoMid, hipMid);
+      // 股関節が肩より画面右(x大)なら前傾(+)、左(x小)なら後傾(-)
+      const trunkSign = hipMid.x >= shoMid.x ? 1 : -1;
+      const trunkAngle = Math.round(trunkAbs) * trunkSign;
 
       // 3. 肩の水平差: 左右の肩の高さの差を身長比で正規化（0%に近いほど水平）
       const shoulderDiff = Math.abs(lSho.y - rSho.y) / bodyH * 100;
 
       return {
         headForward:   Math.round(headAngle),
-        trunk:         Math.round(trunkAngle),
+        trunk:         trunkAngle,
         shoulderLevel: Math.round(shoulderDiff),
       };
     }
@@ -295,8 +305,8 @@
     function calcPostureScore(m) {
       // 頭部: 180°=100pt, 120°=0pt
       const headScore     = Math.max(0, Math.min(100, (m.headForward - 120) / 60 * 100));
-      // 体幹: 0°=100pt, 30°=0pt
-      const trunkScore    = Math.max(0, Math.min(100, (1 - m.trunk / 30) * 100));
+      // 体幹: 0°=100pt, 30°=0pt（絶対値で評価）
+      const trunkScore    = Math.max(0, Math.min(100, (1 - Math.abs(m.trunk) / 30) * 100));
       // 肩水平: 0%=100pt, 10%=0pt
       const shoulderScore = Math.max(0, Math.min(100, (1 - m.shoulderLevel / 10) * 100));
       return Math.round(headScore * 0.4 + trunkScore * 0.4 + shoulderScore * 0.2);
@@ -341,8 +351,8 @@
         m.headForward + '°',
         m.headForward >= 160 ? 'good' : m.headForward >= 140 ? 'warn' : 'bad');
       setMetricEl('m-trunk',
-        m.trunk + '°',
-        m.trunk <= 5 ? 'good' : m.trunk <= 15 ? 'warn' : 'bad');
+        (m.trunk > 0 ? '+' : '') + m.trunk + '°',
+        Math.abs(m.trunk) <= 5 ? 'good' : Math.abs(m.trunk) <= 15 ? 'warn' : 'bad');
       setMetricEl('m-shoulder',
         m.shoulderLevel + '%',
         m.shoulderLevel <= 3 ? 'good' : m.shoulderLevel <= 6 ? 'warn' : 'bad');
@@ -412,21 +422,26 @@
       }
 
       const METRICS_DEF = [
-        { label: '頭部前傾角',  key: 'headForward',   unit: '°', higherIsBetter: true  },
-        { label: '体幹傾斜角',  key: 'trunk',          unit: '°', higherIsBetter: false },
-        { label: '肩の水平差',  key: 'shoulderLevel',  unit: '%', higherIsBetter: false },
+        { label: '頭部前傾角', key: 'headForward',  unit: '°', higherIsBetter: true,  signed: false },
+        { label: '体幹傾斜角', key: 'trunk',         unit: '°', higherIsBetter: false, signed: true  },
+        { label: '肩の水平差', key: 'shoulderLevel', unit: '%', higherIsBetter: false, signed: false },
       ];
       document.getElementById('metricsTableBody').innerHTML = METRICS_DEF.map(def => {
         const bv = beforeData.metrics[def.key];
         const av = afterData.metrics[def.key];
         const d  = av - bv;
-        const improved = def.higherIsBetter ? d > 0 : d < 0;
+        // 体幹は絶対値が小さくなれば改善
+        const improved = def.signed
+          ? Math.abs(av) < Math.abs(bv)
+          : (def.higherIsBetter ? d > 0 : d < 0);
         const cls = (d === 0) ? '' : improved ? 'delta-pos' : 'delta-neg';
+        const fmt = v => (def.signed && v > 0 ? '+' : '') + v + def.unit;
+        const dStr = (d > 0 ? '+' : '') + d + def.unit;
         return `<div class="tbl-row">
           <div>${def.label}</div>
-          <div>${bv}${def.unit}</div>
-          <div>${av}${def.unit}</div>
-          <div class="${cls}">${d > 0 ? '+' : ''}${d}${def.unit}</div>
+          <div>${fmt(bv)}</div>
+          <div>${fmt(av)}</div>
+          <div class="${cls}">${dStr}</div>
         </div>`;
       }).join('');
 
@@ -481,7 +496,7 @@
       if (mode === 'before') {
         beforeData = captureSnapshot();
         mode = 'after';
-        modeBanner.textContent = '📷 治療後の姿勢を撮影してください';
+        modeBanner.innerHTML = '<img src="miya.png" class="banner-logo" alt="">治療後の姿勢を撮影してください';
         modeBanner.className = 'mode-banner after';
         captureBtn.textContent = '治療後を保存する';
         captureBtn.className = 'after';
@@ -495,7 +510,7 @@
       mode = 'before';
       beforeData = null;
       afterData  = null;
-      modeBanner.textContent = '📷 治療前の姿勢を撮影してください';
+      modeBanner.innerHTML = '<img src="miya.png" class="banner-logo" alt="">治療前の姿勢を撮影してください';
       modeBanner.className = 'mode-banner before';
       captureBtn.textContent = '治療前を保存する';
       captureBtn.className = 'before';
