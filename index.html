@@ -14,11 +14,11 @@
     #status { padding: 12px; background: #fff; margin-bottom: 15px; font-weight: bold; border-radius: 6px; border: 1px solid #ddd; }
   </style>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/vision_bundle.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/index.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-  <h1>姿勢推定（フロントエンド完結版）</h1>
+  <h1>姿勢推定2（フロントエンド完結版）</h1>
   <div id="status">AIシステムを起動しています...</div>
   
   <div id="container">
@@ -34,10 +34,10 @@
     let poseLandmarker = undefined;
     let retryCount = 0;
 
-    // 定期的にライブラリの読み込み成功をチェックする関数（生存確認ループ）
+    // 定期的にライブラリの読み込み成功をチェックする関数
     function checkLibraryAndStart() {
-      // window直下のオブジェクトを確認
-      const visionTasks = window.tasksVision || window.mpTasksVision;
+      // 修正後のURLでは「MediaPipeTasksVision」という名前で登録されます
+      const visionTasks = window.MediaPipeTasksVision;
       
       if (visionTasks) {
         statusDiv.innerText = "ライブラリ接続成功！モデルをロード中...";
@@ -46,16 +46,16 @@
         retryCount++;
         statusDiv.innerText = `AIの準備中... (${retryCount}秒経過)`;
         
-        if (retryCount > 15) {
-          statusDiv.innerText = "読み込みに時間がかかっています。電波の良い場所でページを再読み込みしてください。";
+        if (retryCount > 10) {
+          statusDiv.innerText = "読み込みエラー。URLまたはネットワークを確認してください。";
         }
-        // 1秒後に再チェック
         setTimeout(checkLibraryAndStart, 1000);
       }
     }
 
     async function initializeAI(visionTasks) {
       try {
+        // Wasm（設定ファイル群）の読み込み先を指定
         const vision = await visionTasks.FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
         );
@@ -97,7 +97,7 @@
           predictLoop();
         });
       } catch (error) {
-        statusDiv.innerText = "カメラ起動エラー。iPhoneの設定でSafariのカメラを許可してください。";
+        statusDiv.innerText = "カメラ起動エラー。カメラのアクセス権を許可してください。";
       }
     }
 
@@ -126,7 +126,7 @@
       requestAnimationFrame(predictLoop);
     }
 
-    // ページが開かれたら、すぐに生存確認ループを開始
+    // 起動
     checkLibraryAndStart();
   </script>
 </body>
