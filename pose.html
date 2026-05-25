@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>整骨院 姿勢AI分析</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <h1>姿勢推定（フロントエンド完結版）</h1>
+  
+  <video id="webcam" autoplay playsinline></video>
+  <canvas id="output_canvas"></canvas>
+
+  <script>
+    // ② AIモデル（Pose Landmarker）を初期化
+    async function initializeAI() {
+      const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm");
+      const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full.task" },
+        runningMode: "VIDEO"
+      });
+      startCamera(poseLandmarker);
+    }
+
+    // ③ iPhoneのカメラを起動してAIに1コマずつ送る
+    async function startCamera(poseLandmarker) {
+      const video = document.getElementById("webcam");
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      video.srcObject = stream;
+      
+      video.addEventListener("loadeddata", async () => {
+        // ループ処理で、カメラのフレームごとに骨格を抽出してCanvasに描画
+        function predictLoop() {
+          const results = poseLandmarker.detectForVideo(video, performance.now());
+          if (results.landmarks) {
+            // ここに関節データ（results.landmarks）が入る！
+            // 例: results.landmarks[0][11] -> 左肩のX, Y座標
+            drawSkeleton(results.landmarks); 
+          }
+          requestAnimationFrame(predictLoop);
+        }
+        predictLoop();
+      });
+    }
+    
+    initializeAI();
+  </script>
+</body>
+</html>
