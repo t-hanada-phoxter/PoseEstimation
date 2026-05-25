@@ -13,12 +13,10 @@
     canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
     #status { padding: 12px; background: #fff; margin-bottom: 15px; font-weight: bold; border-radius: 6px; border: 1px solid #ddd; }
   </style>
-
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/index.js" crossorigin="anonymous"></script>
 </head>
 <body>
 
-  <h1>姿勢推定2（フロントエンド完結版）</h1>
+  <h1>姿勢推定（フロントエンド完結版）</h1>
   <div id="status">AIシステムを起動しています...</div>
   
   <div id="container">
@@ -26,45 +24,31 @@
     <canvas id="output_canvas"></canvas>
   </div>
 
-  <script>
+  <script type="module">
+    // 最新のMediaPipeライブラリを読み込み
+    import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8";
+
     const video = document.getElementById("webcam");
     const canvas = document.getElementById("output_canvas");
     const ctx = canvas.getContext("2d");
     const statusDiv = document.getElementById("status");
     let poseLandmarker = undefined;
-    let retryCount = 0;
 
-    // 定期的にライブラリの読み込み成功をチェックする関数
-    function checkLibraryAndStart() {
-      // 修正後のURLでは「MediaPipeTasksVision」という名前で登録されます
-      const visionTasks = window.MediaPipeTasksVision;
-      
-      if (visionTasks) {
-        statusDiv.innerText = "ライブラリ接続成功！モデルをロード中...";
-        initializeAI(visionTasks);
-      } else {
-        retryCount++;
-        statusDiv.innerText = `AIの準備中... (${retryCount}秒経過)`;
-        
-        if (retryCount > 10) {
-          statusDiv.innerText = "読み込みエラー。URLまたはネットワークを確認してください。";
-        }
-        setTimeout(checkLibraryAndStart, 1000);
-      }
-    }
-
-    async function initializeAI(visionTasks) {
+    async function initializeAI() {
       try {
-        // Wasm（設定ファイル群）の読み込み先を指定
-        const vision = await visionTasks.FilesetResolver.forVisionTasks(
+        statusDiv.innerText = "設定ファイルをダウンロード中...";
+        // Wasm（コアエンジン）の読み込み先
+        const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
         );
         
-        statusDiv.innerText = "骨格抽出AIを起動中...";
-        poseLandmarker = await visionTasks.PoseLandmarker.createFromOptions(vision, {
+        statusDiv.innerText = "骨格抽出モデルをロード中（数秒かかります）...";
+        
+        // 【修正】エラーの原因だったURLを、最も安定して取得できるCDNのURLに変更しました
+        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full.task",
-            delegate: "GPU"
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
+            delegate: "CPU"
           },
           runningMode: "VIDEO",
           numPoses: 1
@@ -81,11 +65,7 @@
     async function startCamera() {
       try {
         const constraints = {
-          video: { 
-            facingMode: "environment", 
-            width: { ideal: 640 }, 
-            height: { ideal: 480 } 
-          }
+          video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } }
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
@@ -127,7 +107,7 @@
     }
 
     // 起動
-    checkLibraryAndStart();
+    initializeAI();
   </script>
 </body>
 </html>
