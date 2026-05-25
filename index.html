@@ -2,48 +2,95 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>整骨院 姿勢AI分析</title>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/vision_bundle.js" crossorigin="anonymous"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 20px; }
+    #container { position: relative; width: 100%; max-width: 640px; margin: 0 auto; }
+    video, canvas { width: 100%; height: auto; }
+    canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+    #status { padding: 10px; background: #eee; margin-bottom: 10px; font-weight: bold; }
+  </style>
 </head>
 <body>
-  <h1>姿勢推定2（フロントエンド完結版）</h1>
+
+  <h1>姿勢推定3（フロントエンド完結版）</h1>
+  <div id="status">AIモデルを読み込み中...</div>
   
-<video id="webcam" autoplay playsinline></video>
-<video id="webcam" autoplay playsinline muted loop style="width: 100%; max-width: 500px; height: auto;"></video>
-  <canvas id="output_canvas"></canvas>
+  <div id="container">
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="output_canvas"></canvas>
+  </div>
 
   <script>
-    // ② AIモデル（Pose Landmarker）を初期化
+    const video = document.getElementById("webcam");
+    const canvas = document.getElementById("output_canvas");
+    const ctx = canvas.getContext("2d");
+    const statusDiv = document.getElementById("status");
+    let poseLandmarker = undefined;
+
     async function initializeAI() {
-      const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/wasm");
-      const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full.task" },
-        runningMode: "VIDEO"
-      });
-      startCamera(poseLandmarker);
+      try {
+        statusDiv.innerText = "タスクファイルをダウンロード中...";
+        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm");
+        
+        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full.task",
+            delegate: "GPU"
+          },
+          runningMode: "VIDEO",
+          numPoses: 1
+        });
+        
+        statusDiv.innerText = "カメラを起動しています...";
+        startCamera();
+      } catch (error) {
+        statusDiv.innerText = "エラー発生: " + error.message;
+        console.error(error);
+      }
     }
 
-    // ③ iPhoneのカメラを起動してAIに1コマずつ送る
-    async function startCamera(poseLandmarker) {
-      const video = document.getElementById("webcam");
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      video.srcObject = stream;
-      
-      video.addEventListener("loadeddata", async () => {
-        // ループ処理で、カメラのフレームごとに骨格を抽出してCanvasに描画
-        function predictLoop() {
-          const results = poseLandmarker.detectForVideo(video, performance.now());
-          if (results.landmarks) {
-            // ここに関節データ（results.landmarks）が入る！
-            // 例: results.landmarks[0][11] -> 左肩のX, Y座標
-            drawSkeleton(results.landmarks); 
-          }
-          requestAnimationFrame(predictLoop);
-        }
-        predictLoop();
-      });
+    async function startCamera() {
+      try {
+        const constraints = {
+          video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } }
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        
+        video.addEventListener("loadeddata", () => {
+          statusDiv.innerText = "AI動作中！体を映してください";
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          predictLoop();
+        });
+      } catch (error) {
+        statusDiv.innerText = "カメラ起動エラー。アクセス権を許可してください。";
+      }
     }
-    
+
+    function predictLoop() {
+      if (!poseLandmarker) return;
+      
+      const startTimeMs = performance.now();
+      const results = poseLandmarker.detectForVideo(video, startTimeMs);
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      if (results.landmarks && results.landmarks.length > 0) {
+        // 骨格の点を簡易的に描画（赤色）
+        results.landmarks[0].forEach(landmark => {
+          ctx.beginPath();
+          ctx.arc(landmark.x * canvas.width, landmark.y * canvas.height, 5, 0, 2 * Math.PI);
+          ctx.fillStyle = "red";
+          ctx.fill();
+        });
+      }
+      requestAnimationFrame(predictLoop);
+    }
+
     initializeAI();
   </script>
 </body>
