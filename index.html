@@ -241,6 +241,8 @@
     let afterData  = null;
     let currentMetrics = null;
     let animFrameId = null;
+    let metricsBuffer = [];   // 4フレーム分の蓄積
+    let frameCount = 0;       // フレームカウンタ
 
     // ── DOM ─────────────────────────────────────────────────
     const video       = document.getElementById('webcam');
@@ -304,20 +306,17 @@
       // 1. 頭部前傾角: 耳中点→肩中点→股関節中点 の角度（180°に近いほど良好）
       const headAngle = angleDeg(earMid, shoMid, hipMid);
 
-      // 2. 体幹傾斜角: 肩中点→股関節 を垂直基準で測定（0°=直立、+前傾/-後傾）
+      // 2. 体幹傾斜角: 肩中点→股関節 を垂直基準で測定（0°=直立、絶対値）
       const verticalRef = { x: shoMid.x, y: shoMid.y - 1 };
-      const trunkAbs = angleDeg(verticalRef, shoMid, hipMid);
-      // 股関節が肩より画面右(x大)なら前傾(+)、左(x小)なら後傾(-)
-      const trunkSign = hipMid.x >= shoMid.x ? 1 : -1;
-      const trunkAngle = Math.round(trunkAbs) * trunkSign;
+      const trunkAngle = Math.round(angleDeg(verticalRef, shoMid, hipMid));
 
-      // 3. 肩の水平差: 左右の肩の高さの差を身長比で正規化（0%に近いほど水平）
-      const shoulderDiff = Math.abs(lSho.y - rSho.y) / bodyH * 100;
+      // 3. 肩の水平差: 左右の肩の高さの差を身長比で正規化（+＝左肩が高い、-＝右肩が高い）
+      const shoulderDiff = Math.round((rSho.y - lSho.y) / bodyH * 100);
 
       return {
         headForward:   Math.round(headAngle),
         trunk:         trunkAngle,
-        shoulderLevel: Math.round(shoulderDiff),
+        shoulderLevel: shoulderDiff,
       };
     }
 
@@ -325,10 +324,10 @@
     function calcPostureScore(m) {
       // 頭部: 180°=100pt, 120°=0pt
       const headScore     = Math.max(0, Math.min(100, (m.headForward - 120) / 60 * 100));
-      // 体幹: 0°=100pt, 30°=0pt（絶対値で評価）
-      const trunkScore    = Math.max(0, Math.min(100, (1 - Math.abs(m.trunk) / 30) * 100));
-      // 肩水平: 0%=100pt, 10%=0pt
-      const shoulderScore = Math.max(0, Math.min(100, (1 - m.shoulderLevel / 10) * 100));
+      // 体幹: 0°=100pt, 30°=0pt
+      const trunkScore    = Math.max(0, Math.min(100, (1 - m.trunk / 30) * 100));
+      // 肩水平: 0%=100pt, 10%=0pt（絶対値で評価）
+      const shoulderScore = Math.max(0, Math.min(100, (1 - Math.abs(m.shoulderLevel) / 10) * 100));
       return Math.round(headScore * 0.4 + trunkScore * 0.4 + shoulderScore * 0.2);
     }
 
@@ -371,11 +370,11 @@
         m.headForward + '°',
         m.headForward >= 160 ? 'good' : m.headForward >= 140 ? 'warn' : 'bad');
       setMetricEl('m-trunk',
-        (m.trunk > 0 ? '+' : '') + m.trunk + '°',
-        Math.abs(m.trunk) <= 5 ? 'good' : Math.abs(m.trunk) <= 15 ? 'warn' : 'bad');
+        m.trunk + '°',
+        m.trunk <= 5 ? 'good' : m.trunk <= 15 ? 'warn' : 'bad');
       setMetricEl('m-shoulder',
-        m.shoulderLevel + '%',
-        m.shoulderLevel <= 3 ? 'good' : m.shoulderLevel <= 6 ? 'warn' : 'bad');
+        (m.shoulderLevel > 0 ? '+' : '') + m.shoulderLevel + '%',
+        Math.abs(m.shoulderLevel) <= 3 ? 'good' : Math.abs(m.shoulderLevel) <= 6 ? 'warn' : 'bad');
     }
 
     function clearMetricsUI() {
@@ -409,10 +408,22 @@
         const m = calcMetrics(lm);
         if (m) {
           currentMetrics = m;
-          updateMetricsUI(m);
+          metricsBuffer.push(m);
+          frameCount++;
+          // 4フレームごとに平均を計算してUIを更新
+          if (frameCount % 4 === 0) {
+            const avg = {
+              headForward:   Math.round(metricsBuffer.reduce((s, v) => s + v.headForward,   0) / metricsBuffer.length),
+              trunk:         Math.round(metricsBuffer.reduce((s, v) => s + v.trunk,         0) / metricsBuffer.length),
+              shoulderLevel: Math.round(metricsBuffer.reduce((s, v) => s + v.shoulderLevel, 0) / metricsBuffer.length),
+            };
+            metricsBuffer = [];
+            updateMetricsUI(avg);
+          }
         }
       } else {
         currentMetrics = null;
+        metricsBuffer = [];
         clearMetricsUI();
       }
 
@@ -443,8 +454,8 @@
 
       const METRICS_DEF = [
         { label: '頭部前傾角', key: 'headForward',  unit: '°', higherIsBetter: true,  signed: false },
-        { label: '体幹傾斜角', key: 'trunk',         unit: '°', higherIsBetter: false, signed: true  },
-        { label: '肩の水平差', key: 'shoulderLevel', unit: '%', higherIsBetter: false, signed: false },
+        { label: '体幹傾斜角', key: 'trunk',         unit: '°', higherIsBetter: false, signed: false },
+        { label: '肩の水平差', key: 'shoulderLevel', unit: '%', higherIsBetter: false, signed: true  },
       ];
       document.getElementById('metricsTableBody').innerHTML = METRICS_DEF.map(def => {
         const bv = beforeData.metrics[def.key];
