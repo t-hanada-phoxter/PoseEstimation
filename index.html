@@ -31,23 +31,14 @@
     #loadingStatus { font-size: 0.95rem; color: #666; text-align: center; padding: 0 24px; }
 
     /* ── カメラ画面 ── */
-    #cameraScreen {
-      background: #f0f4fb;
-      padding-bottom: env(safe-area-inset-bottom);
-    }
+    #cameraScreen { background: #f0f4fb; padding-bottom: env(safe-area-inset-bottom); }
 
     /* タイトルバー */
     .mode-banner {
       padding: 11px 13px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-size: 0.95rem;
-      font-weight: bold;
-      letter-spacing: 0.03em;
-      background: #fff;
-      border-bottom: 2px solid;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-size: 0.95rem; font-weight: bold; letter-spacing: 0.03em;
+      background: #fff; border-bottom: 2px solid;
       box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     }
     .mode-banner.before { color: #1565c0; border-color: #1565c0; }
@@ -55,52 +46,36 @@
     .banner-logo { width: 28px; height: 28px; object-fit: contain; border-radius: 4px; }
 
     /* 計測モードタブ */
-    #viewTabs {
-      display: flex;
-      background: #fff;
-      border-bottom: 1px solid #e0e6f0;
-    }
+    #viewTabs { display: flex; background: #fff; border-bottom: 1px solid #e0e6f0; }
     .tab-btn {
-      flex: 1;
-      padding: 9px 4px 7px;
-      border: none;
-      background: none;
-      font-size: 0.8rem;
-      font-weight: bold;
-      color: #999;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
+      flex: 1; padding: 9px 4px 7px;
+      border: none; background: none;
+      font-size: 0.78rem; font-weight: bold; color: #999;
+      cursor: pointer; border-bottom: 3px solid transparent;
       transition: color 0.15s, border-color 0.15s;
     }
-    .tab-btn.active           { color: #1565c0; border-bottom-color: #1565c0; }
-    .tab-btn.locked           { color: #bbb; cursor: default; }
-    .tab-btn.active.view-side { color: #6a1b9a; border-bottom-color: #6a1b9a; }
-    .tab-btn.active.view-dyn  { color: #e65100; border-bottom-color: #e65100; }
+    .tab-btn.active            { color: #1565c0; border-bottom-color: #1565c0; }
+    .tab-btn.locked            { color: #bbb; cursor: default; }
+    .tab-btn.active.view-side  { color: #6a1b9a; border-bottom-color: #6a1b9a; }
+    .tab-btn.active.view-dyn   { color: #e65100; border-bottom-color: #e65100; }
+    .tab-btn.active.view-rom   { color: #00897b; border-bottom-color: #00897b; }
 
     /* 映像エリア */
     #videoContainer {
-      position: relative;
-      margin: 10px 12px;
-      flex: 1;
-      background: #000;
-      border-radius: 18px;
-      overflow: hidden;
+      position: relative; margin: 10px 12px; flex: 1;
+      background: #000; border-radius: 18px; overflow: hidden;
       box-shadow: 0 4px 16px rgba(0,0,0,0.18);
     }
     video { width: 100%; height: 100%; object-fit: cover; display: block; }
     #overlayCanvas {
       position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
+      width: 100%; height: 100%; pointer-events: none;
     }
 
-    /* 計測値パネル */
+    /* 通常の計測値パネル */
     #metricsPanel {
-      background: #fff;
-      border-top: 1px solid #e0e6f0;
-      padding: 10px 12px;
-      display: grid;
-      gap: 6px;
+      background: #fff; border-top: 1px solid #e0e6f0;
+      padding: 10px 12px; display: grid; gap: 6px;
     }
     .metric-item { text-align: center; }
     .metric-label { font-size: 0.6rem; color: #888; margin-bottom: 2px; }
@@ -110,23 +85,72 @@
     .bad     { color: #c62828; }
     .neutral { color: #333; }
 
+    /* ── ROM モード専用UI ── */
+    #romPanel { display: none; flex-direction: column; background: #fff; border-top: 1px solid #e0e6f0; }
+
+    /* 動作選択スクロール行 */
+    #romSelector {
+      display: flex; gap: 8px; padding: 8px 12px;
+      overflow-x: auto; scrollbar-width: none;
+      border-bottom: 1px solid #e0e6f0;
+    }
+    #romSelector::-webkit-scrollbar { display: none; }
+    .rom-mov-btn {
+      flex-shrink: 0; padding: 6px 14px; border-radius: 20px;
+      border: 2px solid #ccc; background: #fff;
+      font-size: 0.78rem; font-weight: bold; color: #666;
+      cursor: pointer; white-space: nowrap; transition: all 0.15s;
+      line-height: 1.3; text-align: center;
+    }
+    .rom-mov-btn small { display: block; font-size: 0.65rem; font-weight: normal; color: #999; }
+    .rom-mov-btn.active { background: #00897b; border-color: #00897b; color: #fff; }
+    .rom-mov-btn.active small { color: rgba(255,255,255,0.75); }
+    .rom-mov-btn.locked { opacity: 0.45; cursor: default; }
+
+    /* ヒントと録画インジケーター */
+    #romHintRow {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; padding: 5px 12px;
+      font-size: 0.75rem; color: #888;
+    }
+    .rec-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #c62828; flex-shrink: 0;
+      animation: blink 0.9s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* 現在角度 / ピーク表示 */
+    #romDisplay {
+      display: grid; grid-template-columns: 1fr 1fr;
+      padding: 6px 12px 10px; gap: 8px;
+    }
+    .rom-angle-box { text-align: center; }
+    .rom-angle-label { font-size: 0.62rem; color: #888; margin-bottom: 2px; }
+    .rom-angle-value {
+      font-size: 2rem; font-weight: bold; color: #333;
+      transition: color 0.2s;
+    }
+    .rom-angle-value.recording { color: #c62828; }
+    .rom-angle-value.has-peak  { color: #00897b; }
+    .rom-normal-text { font-size: 0.62rem; color: #bbb; margin-top: 2px; }
+
+    /* キャプチャボタン */
     #captureBtn {
-      margin: 12px 16px 14px;
-      padding: 15px;
-      border-radius: 50px;
-      border: none;
-      font-size: 1.05rem;
-      font-weight: bold;
-      cursor: pointer;
-      transition: opacity 0.2s;
+      margin: 12px 16px 14px; padding: 15px; border-radius: 50px;
+      border: none; font-size: 1.05rem; font-weight: bold;
+      cursor: pointer; transition: opacity 0.2s, background 0.2s;
     }
     #captureBtn:active { opacity: 0.75; }
-    #captureBtn.before { background: #1976d2; color: #fff; }
-    #captureBtn.after  { background: #388e3c; color: #fff; }
+    #captureBtn.before    { background: #1976d2; color: #fff; }
+    #captureBtn.after     { background: #388e3c; color: #fff; }
+    #captureBtn.rom-start { background: #00897b; color: #fff; }
+    #captureBtn.rom-stop  { background: #c62828; color: #fff; }
+    #captureBtn.rom-save  { background: #1976d2; color: #fff; }
+    #captureBtn.rom-save-after { background: #388e3c; color: #fff; }
 
     /* ── 比較レポート画面 ── */
     #comparisonScreen { padding: 16px; gap: 16px; overflow-y: auto; }
-
     .comp-header { text-align: center; }
     .comp-header h2 { font-size: 1.25rem; font-weight: bold; }
     .comp-header p  { font-size: 0.8rem; color: #888; margin-top: 4px; }
@@ -142,10 +166,7 @@
     .after-label  { background: #2e7d32; color: #fff; }
 
     .score-card {
-      background: rgba(255,255,255,0.07);
-      border-radius: 14px;
-      padding: 20px;
-      text-align: center;
+      background: rgba(255,255,255,0.07); border-radius: 14px; padding: 20px; text-align: center;
     }
     .score-card .sub  { font-size: 0.82rem; color: #888; margin-bottom: 6px; }
     .score-number { font-size: 3rem; font-weight: bold; line-height: 1; }
@@ -194,17 +215,37 @@
     <div id="modeBanner" class="mode-banner before">
       <img src="miya.png" class="banner-logo" alt="">治療前の姿勢を撮影してください
     </div>
-    <!-- 計測モード切替タブ -->
     <div id="viewTabs">
       <button class="tab-btn active" data-view="front">正面</button>
       <button class="tab-btn" data-view="side">横向き</button>
       <button class="tab-btn" data-view="dynamic">動的</button>
+      <button class="tab-btn" data-view="rom">可動域</button>
     </div>
     <div id="videoContainer">
       <video id="webcam" autoplay playsinline muted></video>
       <canvas id="overlayCanvas"></canvas>
     </div>
+
+    <!-- 通常モード計測パネル -->
     <div id="metricsPanel"></div>
+
+    <!-- ROM モードパネル -->
+    <div id="romPanel">
+      <div id="romSelector"></div>
+      <div id="romHintRow"></div>
+      <div id="romDisplay">
+        <div class="rom-angle-box">
+          <div class="rom-angle-label">現在の角度</div>
+          <div class="rom-angle-value neutral" id="romLive">--°</div>
+        </div>
+        <div class="rom-angle-box">
+          <div class="rom-angle-label">ピーク（最大）</div>
+          <div class="rom-angle-value neutral" id="romPeak">--°</div>
+          <div class="rom-normal-text" id="romNormal"></div>
+        </div>
+      </div>
+    </div>
+
     <button id="captureBtn" class="before">治療前を保存する</button>
   </div>
 
@@ -214,7 +255,6 @@
       <h2>姿勢改善レポート</h2>
       <p id="compModeLabel">治療前後の姿勢データを比較しています</p>
     </div>
-
     <div class="image-row">
       <div class="capture-card">
         <img id="beforeImg" alt="治療前">
@@ -225,23 +265,17 @@
         <div class="capture-label after-label">治療後</div>
       </div>
     </div>
-
     <div class="score-card">
       <div class="sub">総合改善スコア</div>
       <div class="score-number" id="totalScore">--</div>
       <div class="score-note" id="scoreNote"></div>
     </div>
-
     <div class="metrics-table">
       <div class="tbl-head">
-        <div>指標</div>
-        <div>治療前</div>
-        <div>治療後</div>
-        <div>変化</div>
+        <div>指標</div><div>治療前</div><div>治療後</div><div>変化</div>
       </div>
       <div id="metricsTableBody"></div>
     </div>
-
     <button class="reset-btn" id="resetBtn">🔄 もう一度測定する</button>
   </div>
 
@@ -249,62 +283,115 @@
     import { PoseLandmarker, FilesetResolver } from
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8";
 
-    // ── 指標定義 ─────────────────────────────────────────────
-    // higher: 大きいほど良い / good,warn: 閾値（higherの場合は下限、!higherの場合は絶対値上限）
+    // ────────────────────────────────────────────────────────────
+    // 指標定義（正面/横向き/動的モード用）
+    // ────────────────────────────────────────────────────────────
     const METRIC_DEFS = {
-      // 正面
       headForward: { label: '頭部前傾角',   unit: '°',  higher: true,  signed: false, good: 160, warn: 140 },
       trunk:       { label: '体幹傾斜角',   unit: '°',  higher: false, signed: false, good: 5,   warn: 15  },
       shoulder:    { label: '肩の水平差',   unit: '%',  higher: false, signed: true,  good: 3,   warn: 6   },
       pelvis:      { label: '骨盤の水平差', unit: '%',  higher: false, signed: true,  good: 3,   warn: 6   },
       headTilt:    { label: '頭部傾斜角',   unit: '°',  higher: false, signed: true,  good: 2,   warn: 5   },
       trunkShift:  { label: '体幹側方傾斜', unit: '%',  higher: false, signed: true,  good: 3,   warn: 8   },
-      // 横向き
       pelvisTilt:  { label: '骨盤傾斜角',   unit: '°',  higher: false, signed: true,  good: 5,   warn: 15  },
       earDev:      { label: '耳の垂線ズレ', unit: '%',  higher: false, signed: true,  good: 5,   warn: 15  },
       shoDev:      { label: '肩の垂線ズレ', unit: '%',  higher: false, signed: true,  good: 5,   warn: 15  },
       kneeAngle:   { label: '膝関節角',     unit: '°',  higher: true,  signed: false, good: 170, warn: 150 },
-      // 動的
       swayX:       { label: '左右の揺らぎ', unit: '',   higher: false, signed: false, good: 2,   warn: 5   },
       swayY:       { label: '前後の揺らぎ', unit: '',   higher: false, signed: false, good: 2,   warn: 5   },
       stability:   { label: '安定性',       unit: 'pt', higher: true,  signed: false, good: 80,  warn: 60  },
     };
 
-    // パネル表示キー／比較テーブルキー
     const VIEW_MODES = {
-      front:   {
-        label:  '正面（前額面）',
-        hint:   '正面から撮影してください',
-        panel:  ['shoulder', 'pelvis', 'headTilt'],
-        table:  ['headForward', 'trunk', 'shoulder', 'pelvis', 'headTilt', 'trunkShift'],
-      },
-      side:    {
-        label:  '横向き（矢状面）',
-        hint:   '真横から撮影してください',
-        panel:  ['pelvisTilt', 'earDev', 'kneeAngle'],
-        table:  ['pelvisTilt', 'earDev', 'shoDev', 'kneeAngle'],
-      },
-      dynamic: {
-        label:  '動的（安定性）',
-        hint:   '10秒間静止して立ってください',
-        panel:  ['swayX', 'swayY', 'stability'],
-        table:  ['swayX', 'swayY', 'stability'],
-      },
+      front:   { label: '正面（前額面）',    panel: ['shoulder','pelvis','headTilt'],         table: ['headForward','trunk','shoulder','pelvis','headTilt','trunkShift'] },
+      side:    { label: '横向き（矢状面）',  panel: ['pelvisTilt','earDev','kneeAngle'],      table: ['pelvisTilt','earDev','shoDev','kneeAngle'] },
+      dynamic: { label: '動的（安定性）',    panel: ['swayX','swayY','stability'],            table: ['swayX','swayY','stability'] },
+      rom:     { label: '可動域（ROM）',     panel: [], table: [] }, // ROM専用UIを使うため空
     };
 
-    // ── 状態 ────────────────────────────────────────────────
-    let poseLandmarker  = null;
-    let mode            = 'before';      // 治療前 / 治療後
-    let viewMode        = 'front';       // front / side / dynamic
-    let beforeData      = null;
-    let afterData       = null;
-    let currentMetrics  = null;
-    let animFrameId     = null;
-    let metricsBuffer   = [];
-    let frameCount      = 0;
-    let swayHistory     = [];            // 動的モード用：鼻の座標履歴
+    // ────────────────────────────────────────────────────────────
+    // 可動域（ROM）動作定義
+    // ────────────────────────────────────────────────────────────
+    const ROM_MOVEMENTS = [
+      {
+        id: 'forwardFlex', label: '前屈', hint: '横向きで撮影',
+        normal: 90,
+        calc: lm => {
+          const s = mid(lm[11],lm[12]), h = mid(lm[23],lm[24]);
+          if (h.y - s.y < 0.02) return null;
+          return Math.round(Math.atan2(Math.abs(h.x - s.x), h.y - s.y) * 180 / Math.PI);
+        },
+      },
+      {
+        id: 'backExt', label: '後屈', hint: '横向きで撮影',
+        normal: 30,
+        calc: lm => {
+          const s = mid(lm[11],lm[12]), h = mid(lm[23],lm[24]);
+          if (h.y - s.y < 0.02) return null;
+          return Math.round(Math.atan2(Math.abs(h.x - s.x), h.y - s.y) * 180 / Math.PI);
+        },
+      },
+      {
+        id: 'sideBendL', label: '側屈（左）', hint: '正面で撮影',
+        normal: 30,
+        calc: lm => {
+          const s = mid(lm[11],lm[12]), h = mid(lm[23],lm[24]);
+          if (h.y - s.y < 0.02) return null;
+          return Math.round(Math.atan2(Math.abs(h.x - s.x), h.y - s.y) * 180 / Math.PI);
+        },
+      },
+      {
+        id: 'sideBendR', label: '側屈（右）', hint: '正面で撮影',
+        normal: 30,
+        calc: lm => {
+          const s = mid(lm[11],lm[12]), h = mid(lm[23],lm[24]);
+          if (h.y - s.y < 0.02) return null;
+          return Math.round(Math.atan2(Math.abs(h.x - s.x), h.y - s.y) * 180 / Math.PI);
+        },
+      },
+      {
+        id: 'neckFlex', label: '頸部前屈', hint: '横向きで撮影',
+        normal: 60,
+        calc: lm => {
+          const e = mid(lm[7],lm[8]), s = mid(lm[11],lm[12]);
+          if (s.y - e.y < 0.02) return null;
+          return Math.round(Math.atan2(Math.abs(s.x - e.x), s.y - e.y) * 180 / Math.PI);
+        },
+      },
+      {
+        id: 'neckExt', label: '頸部後屈', hint: '横向きで撮影',
+        normal: 50,
+        calc: lm => {
+          const e = mid(lm[7],lm[8]), s = mid(lm[11],lm[12]);
+          if (s.y - e.y < 0.02) return null;
+          return Math.round(Math.atan2(Math.abs(s.x - e.x), s.y - e.y) * 180 / Math.PI);
+        },
+      },
+    ];
 
-    // ── DOM ─────────────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────
+    // 状態
+    // ────────────────────────────────────────────────────────────
+    let poseLandmarker   = null;
+    let mode             = 'before';   // 治療前/治療後
+    let viewMode         = 'front';
+    let beforeData       = null;
+    let afterData        = null;
+    let currentMetrics   = null;
+    let animFrameId      = null;
+    let metricsBuffer    = [];
+    let frameCount       = 0;
+    let swayHistory      = [];
+
+    // ROM専用状態
+    let romMovIdx        = 0;          // 選択中の動作インデックス
+    let romRecording     = false;      // 計測中フラグ
+    let romPeakAngle     = null;       // 計測で得たピーク角度
+    let romLiveAngle     = null;       // リアルタイム角度
+
+    // ────────────────────────────────────────────────────────────
+    // DOM
+    // ────────────────────────────────────────────────────────────
     const video         = document.getElementById('webcam');
     const canvas        = document.getElementById('overlayCanvas');
     const ctx           = canvas.getContext('2d');
@@ -312,13 +399,16 @@
     const modeBanner    = document.getElementById('modeBanner');
     const captureBtn    = document.getElementById('captureBtn');
     const metricsPanel  = document.getElementById('metricsPanel');
+    const romPanel      = document.getElementById('romPanel');
 
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
     }
 
-    // ── スケルトン接続定義 ──────────────────────────────────
+    // ────────────────────────────────────────────────────────────
+    // スケルトン
+    // ────────────────────────────────────────────────────────────
     const CONNECTIONS = [
       [11,12],[11,23],[12,24],[23,24],
       [11,13],[13,15],[12,14],[14,16],
@@ -326,380 +416,506 @@
       [7,11],[8,12],[0,11],[0,12],
     ];
 
-    // ── ユーティリティ ───────────────────────────────────────
-    function angleDeg(a, b, c) {
-      const ba = { x: a.x - b.x, y: a.y - b.y };
-      const bc = { x: c.x - b.x, y: c.y - b.y };
-      const dot = ba.x * bc.x + ba.y * bc.y;
-      const mag = Math.hypot(ba.x, ba.y) * Math.hypot(bc.x, bc.y);
-      if (mag === 0) return 0;
-      return Math.acos(Math.min(1, Math.max(-1, dot / mag))) * 180 / Math.PI;
+    function mid(a,b) { return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 }; }
+
+    function angleDeg(a,b,c) {
+      const ba={x:a.x-b.x,y:a.y-b.y}, bc={x:c.x-b.x,y:c.y-b.y};
+      const dot=ba.x*bc.x+ba.y*bc.y;
+      const mag=Math.hypot(ba.x,ba.y)*Math.hypot(bc.x,bc.y);
+      if(mag===0) return 0;
+      return Math.acos(Math.min(1,Math.max(-1,dot/mag)))*180/Math.PI;
     }
 
-    function mid(a, b) {
-      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    }
-
-    // ── 指標計算（モード別） ─────────────────────────────────
+    // ────────────────────────────────────────────────────────────
+    // 指標計算（正面/横向き/動的）
+    // ────────────────────────────────────────────────────────────
     function calcMetrics(lm) {
-      if (viewMode === 'front')   return calcFront(lm);
-      if (viewMode === 'side')    return calcSide(lm);
-      return calcDynamic(lm);
+      if (viewMode==='front')   return calcFront(lm);
+      if (viewMode==='side')    return calcSide(lm);
+      if (viewMode==='dynamic') return calcDynamic(lm);
+      return null;
     }
 
     function calcFront(lm) {
-      const lEar = lm[7], rEar = lm[8];
-      const lSho = lm[11], rSho = lm[12];
-      const lHip = lm[23], rHip = lm[24];
-      const lAnk = lm[27], rAnk = lm[28];
-
-      const earMid   = mid(lEar, rEar);
-      const shoMid   = mid(lSho, rSho);
-      const hipMid   = mid(lHip, rHip);
-      const ankMid   = mid(lAnk, rAnk);
-      const bodyH    = Math.hypot(shoMid.x - hipMid.x, shoMid.y - hipMid.y);
-      if (bodyH < 0.01) return null;
-
-      // 頭部前傾角: 耳中→肩中→腰中（180°が理想）
-      const headForward = Math.round(angleDeg(earMid, shoMid, hipMid));
-      // 体幹傾斜角: 垂直vs肩中→腰中（0°が理想）
-      const trunk       = Math.round(angleDeg({ x: shoMid.x, y: shoMid.y - 1 }, shoMid, hipMid));
-      // 肩の水平差: +＝左肩が高い、−＝右肩が高い
-      const shoulder    = Math.round((rSho.y - lSho.y) / bodyH * 100);
-      // 骨盤の水平差: +＝左骨盤が高い
-      const pelvis      = Math.round((rHip.y - lHip.y) / bodyH * 100);
-      // 頭部傾斜角: 耳ラインの水平からの傾き
-      const headTilt    = Math.round(Math.atan2(rEar.y - lEar.y, rEar.x - lEar.x) * 180 / Math.PI);
-      // 体幹側方傾斜: 肩中心vs足中心の水平ズレ（+＝右寄り）
-      const trunkShift  = Math.round((shoMid.x - ankMid.x) / bodyH * 100);
-
-      return { headForward, trunk, shoulder, pelvis, headTilt, trunkShift };
+      const lEar=lm[7],rEar=lm[8],lSho=lm[11],rSho=lm[12];
+      const lHip=lm[23],rHip=lm[24],lAnk=lm[27],rAnk=lm[28];
+      const earMid=mid(lEar,rEar), shoMid=mid(lSho,rSho);
+      const hipMid=mid(lHip,rHip), ankMid=mid(lAnk,rAnk);
+      const bodyH=Math.hypot(shoMid.x-hipMid.x,shoMid.y-hipMid.y);
+      if(bodyH<0.01) return null;
+      return {
+        headForward: Math.round(angleDeg(earMid,shoMid,hipMid)),
+        trunk:       Math.round(angleDeg({x:shoMid.x,y:shoMid.y-1},shoMid,hipMid)),
+        shoulder:    Math.round((rSho.y-lSho.y)/bodyH*100),
+        pelvis:      Math.round((rHip.y-lHip.y)/bodyH*100),
+        headTilt:    Math.round(Math.atan2(rEar.y-lEar.y,rEar.x-lEar.x)*180/Math.PI),
+        trunkShift:  Math.round((shoMid.x-ankMid.x)/bodyH*100),
+      };
     }
 
     function calcSide(lm) {
-      const lEar = lm[7], rEar = lm[8];
-      const lSho = lm[11], rSho = lm[12];
-      const lHip = lm[23], rHip = lm[24];
-      const lKne = lm[25], rKne = lm[26];
-      const lAnk = lm[27], rAnk = lm[28];
-
-      const earMid  = mid(lEar, rEar);
-      const shoMid  = mid(lSho, rSho);
-      const hipMid  = mid(lHip, rHip);
-      const kneMid  = mid(lKne, rKne);
-      const ankMid  = mid(lAnk, rAnk);
-      const bodyLen = Math.hypot(earMid.x - ankMid.x, earMid.y - ankMid.y);
-      if (bodyLen < 0.05) return null;
-
-      // 骨盤傾斜角: 腰→膝ラインの垂直からのズレ（+＝前傾/反り腰、−＝後傾/猫背）
-      const pelvisTilt = Math.round(
-        Math.atan2(kneMid.x - hipMid.x, hipMid.y - kneMid.y) * 180 / Math.PI
-      );
-      // 耳・肩の垂線ズレ: 足首を基準とした水平方向のズレ（%）
-      const earDev = Math.round((earMid.x - ankMid.x) / bodyLen * 100);
-      const shoDev = Math.round((shoMid.x - ankMid.x) / bodyLen * 100);
-      // 膝関節角: 腰→膝→足首（180°＝完全伸展が理想）
-      const lKA = angleDeg(lHip, lKne, lAnk);
-      const rKA = angleDeg(rHip, rKne, rAnk);
-      const kneeAngle = Math.round((lKA + rKA) / 2);
-
-      return { pelvisTilt, earDev, shoDev, kneeAngle };
+      const earMid=mid(lm[7],lm[8]), shoMid=mid(lm[11],lm[12]);
+      const hipMid=mid(lm[23],lm[24]), kneMid=mid(lm[25],lm[26]), ankMid=mid(lm[27],lm[28]);
+      const bodyLen=Math.hypot(earMid.x-ankMid.x,earMid.y-ankMid.y);
+      if(bodyLen<0.05) return null;
+      return {
+        pelvisTilt: Math.round(Math.atan2(kneMid.x-hipMid.x,hipMid.y-kneMid.y)*180/Math.PI),
+        earDev:     Math.round((earMid.x-ankMid.x)/bodyLen*100),
+        shoDev:     Math.round((shoMid.x-ankMid.x)/bodyLen*100),
+        kneeAngle:  Math.round((angleDeg(lm[23],lm[25],lm[27])+angleDeg(lm[24],lm[26],lm[28]))/2),
+      };
     }
 
     function calcDynamic(lm) {
-      const nose = lm[0];
-      swayHistory.push({ x: nose.x, y: nose.y });
-      if (swayHistory.length > 90) swayHistory.shift(); // 約3秒分
-      if (swayHistory.length < 10) return null;
-
-      const n  = swayHistory.length;
-      const mX = swayHistory.reduce((s, p) => s + p.x, 0) / n;
-      const mY = swayHistory.reduce((s, p) => s + p.y, 0) / n;
-      const swayX = Math.round(Math.sqrt(swayHistory.reduce((s, p) => s + (p.x - mX) ** 2, 0) / n) * 1000);
-      const swayY = Math.round(Math.sqrt(swayHistory.reduce((s, p) => s + (p.y - mY) ** 2, 0) / n) * 1000);
-      const stability = Math.max(0, Math.round((1 - Math.hypot(swayX, swayY) / 15) * 100));
-
-      return { swayX, swayY, stability };
+      swayHistory.push({x:lm[0].x,y:lm[0].y});
+      if(swayHistory.length>90) swayHistory.shift();
+      if(swayHistory.length<10) return null;
+      const n=swayHistory.length;
+      const mX=swayHistory.reduce((s,p)=>s+p.x,0)/n;
+      const mY=swayHistory.reduce((s,p)=>s+p.y,0)/n;
+      const swayX=Math.round(Math.sqrt(swayHistory.reduce((s,p)=>s+(p.x-mX)**2,0)/n)*1000);
+      const swayY=Math.round(Math.sqrt(swayHistory.reduce((s,p)=>s+(p.y-mY)**2,0)/n)*1000);
+      return { swayX, swayY, stability:Math.max(0,Math.round((1-Math.hypot(swayX,swayY)/15)*100)) };
     }
 
-    // ── スコア計算（モード別） ───────────────────────────────
+    // ────────────────────────────────────────────────────────────
+    // スコア計算
+    // ────────────────────────────────────────────────────────────
     function calcScore(m, vm) {
-      const c = v => Math.max(0, Math.min(100, v));
-      if (vm === 'front') {
-        return Math.round(
-          c((m.headForward - 120) / 60 * 100) * 0.2 +
-          c((1 - m.trunk / 30) * 100)         * 0.2 +
-          c((1 - Math.abs(m.shoulder)  / 10) * 100) * 0.2 +
-          c((1 - Math.abs(m.pelvis)    / 10) * 100) * 0.2 +
-          c((1 - Math.abs(m.headTilt)  / 10) * 100) * 0.1 +
-          c((1 - Math.abs(m.trunkShift)/ 10) * 100) * 0.1
-        );
+      const c=v=>Math.max(0,Math.min(100,v));
+      if(vm==='front') return Math.round(
+        c((m.headForward-120)/60*100)*0.2+c((1-m.trunk/30)*100)*0.2+
+        c((1-Math.abs(m.shoulder)/10)*100)*0.2+c((1-Math.abs(m.pelvis)/10)*100)*0.2+
+        c((1-Math.abs(m.headTilt)/10)*100)*0.1+c((1-Math.abs(m.trunkShift)/10)*100)*0.1
+      );
+      if(vm==='side') return Math.round(
+        c((1-Math.abs(m.pelvisTilt)/30)*100)*0.35+c((1-Math.abs(m.earDev)/20)*100)*0.30+
+        c((1-Math.abs(m.shoDev)/20)*100)*0.15+c((1-Math.abs(180-m.kneeAngle)/30)*100)*0.20
+      );
+      if(vm==='rom') {
+        const mov=ROM_MOVEMENTS[m._movIdx];
+        return Math.round(Math.min(100,(m._peak/mov.normal)*100));
       }
-      if (vm === 'side') {
-        return Math.round(
-          c((1 - Math.abs(m.pelvisTilt) / 30) * 100) * 0.35 +
-          c((1 - Math.abs(m.earDev)     / 20) * 100) * 0.30 +
-          c((1 - Math.abs(m.shoDev)     / 20) * 100) * 0.15 +
-          c((1 - Math.abs(180 - m.kneeAngle) / 30) * 100) * 0.20
-        );
-      }
-      return m.stability; // dynamic
+      return m.stability;
     }
 
-    // ── パネルUI ─────────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────
+    // パネルUI（正面/横向き/動的）
+    // ────────────────────────────────────────────────────────────
     function renderMetricsPanel() {
-      const keys = VIEW_MODES[viewMode].panel;
-      metricsPanel.style.gridTemplateColumns = `repeat(${keys.length}, 1fr)`;
-      metricsPanel.innerHTML = keys.map(key => {
-        const def = METRIC_DEFS[key];
-        return `<div class="metric-item">
-          <div class="metric-label">${def.label}</div>
-          <div class="metric-value neutral" id="m-${key}">--</div>
-        </div>`;
-      }).join('');
+      const isRom = viewMode === 'rom';
+      metricsPanel.style.display = isRom ? 'none' : 'grid';
+      romPanel.style.display     = isRom ? 'flex'  : 'none';
+
+      if (!isRom) {
+        const keys = VIEW_MODES[viewMode].panel;
+        metricsPanel.style.gridTemplateColumns = `repeat(${keys.length},1fr)`;
+        metricsPanel.innerHTML = keys.map(key => {
+          const def = METRIC_DEFS[key];
+          return `<div class="metric-item">
+            <div class="metric-label">${def.label}</div>
+            <div class="metric-value neutral" id="m-${key}">--</div>
+          </div>`;
+        }).join('');
+      } else {
+        renderRomPanel();
+      }
     }
 
+    // ────────────────────────────────────────────────────────────
+    // ROM パネルUI
+    // ────────────────────────────────────────────────────────────
+    function renderRomPanel() {
+      // 動作ボタン
+      document.getElementById('romSelector').innerHTML = ROM_MOVEMENTS.map((m,i) =>
+        `<button class="rom-mov-btn${i===romMovIdx?' active':''}${beforeData&&viewMode==='rom'?' locked':''}" data-idx="${i}">
+          ${m.label}<small>${m.hint}</small>
+        </button>`
+      ).join('');
+
+      // 正常値
+      document.getElementById('romNormal').textContent = `正常可動域: ${ROM_MOVEMENTS[romMovIdx].normal}°`;
+
+      // ヒントテキスト（録画中はインジケーター表示）
+      updateRomHintRow();
+
+      // ライブ/ピーク表示リセット
+      romLiveAngle = null;
+      if (!romRecording) updateRomDisplay();
+    }
+
+    function updateRomHintRow() {
+      const hintRow = document.getElementById('romHintRow');
+      if (romRecording) {
+        hintRow.innerHTML = `<span class="rec-dot"></span><span style="color:#c62828;font-weight:bold">計測中... 最大まで動かしてください</span>`;
+      } else {
+        hintRow.innerHTML = ROM_MOVEMENTS[romMovIdx].hint;
+      }
+    }
+
+    function updateRomDisplay() {
+      const liveEl = document.getElementById('romLive');
+      const peakEl = document.getElementById('romPeak');
+      if (liveEl) {
+        liveEl.textContent = romLiveAngle !== null ? romLiveAngle + '°' : '--°';
+        liveEl.className   = 'rom-angle-value ' + (romRecording ? 'recording' : 'neutral');
+      }
+      if (peakEl) {
+        peakEl.textContent = romPeakAngle !== null ? romPeakAngle + '°' : '--°';
+        peakEl.className   = 'rom-angle-value ' + (romPeakAngle !== null ? 'has-peak' : 'neutral');
+      }
+    }
+
+    function updateRomCaptureBtn() {
+      if (romRecording) {
+        captureBtn.textContent = '⏹ 計測終了';
+        captureBtn.className   = 'rom-stop';
+      } else if (romPeakAngle !== null) {
+        if (mode === 'before') {
+          captureBtn.textContent = '治療前として保存する';
+          captureBtn.className   = 'rom-save';
+        } else {
+          captureBtn.textContent = '治療後として保存する';
+          captureBtn.className   = 'rom-save-after';
+        }
+      } else {
+        captureBtn.textContent = '▶ 計測開始';
+        captureBtn.className   = 'rom-start';
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────
+    // ROM 動作ボタン選択
+    // ────────────────────────────────────────────────────────────
+    document.getElementById('romSelector').addEventListener('click', e => {
+      const btn = e.target.closest('.rom-mov-btn');
+      if (!btn || btn.classList.contains('locked')) return;
+      romMovIdx    = parseInt(btn.dataset.idx);
+      romPeakAngle = null;
+      romLiveAngle = null;
+      renderRomPanel();
+      updateRomCaptureBtn();
+    });
+
+    // ────────────────────────────────────────────────────────────
+    // 通常モードUI更新
+    // ────────────────────────────────────────────────────────────
     function metricColor(key, value) {
-      const def = METRIC_DEFS[key];
-      const abs = Math.abs(value);
-      if (def.higher) return value >= def.good ? 'good' : value >= def.warn ? 'warn' : 'bad';
-      return abs <= def.good ? 'good' : abs <= def.warn ? 'warn' : 'bad';
+      const def = METRIC_DEFS[key], abs = Math.abs(value);
+      return def.higher ? (value>=def.good?'good':value>=def.warn?'warn':'bad')
+                        : (abs<=def.good?'good':abs<=def.warn?'warn':'bad');
     }
-
     function metricFmt(key, value) {
       const def = METRIC_DEFS[key];
-      return (def.signed && value > 0 ? '+' : '') + value + def.unit;
+      return (def.signed && value>0 ? '+' : '') + value + def.unit;
     }
-
     function updateMetricsUI(m) {
       VIEW_MODES[viewMode].panel.forEach(key => {
-        const el = document.getElementById('m-' + key);
-        if (!el || m[key] === undefined) return;
-        el.textContent  = metricFmt(key, m[key]);
-        el.className    = 'metric-value ' + metricColor(key, m[key]);
+        const el = document.getElementById('m-'+key);
+        if(!el || m[key]===undefined) return;
+        el.textContent = metricFmt(key,m[key]);
+        el.className   = 'metric-value '+metricColor(key,m[key]);
       });
     }
-
     function clearMetricsUI() {
       document.querySelectorAll('.metric-value').forEach(el => {
-        el.textContent = '--';
-        el.className   = 'metric-value neutral';
+        el.textContent='--'; el.className='metric-value neutral';
       });
     }
 
-    // ── スケルトン描画 ───────────────────────────────────────
+    // ────────────────────────────────────────────────────────────
+    // スケルトン描画
+    // ────────────────────────────────────────────────────────────
     function drawSkeleton(lm) {
-      const W = canvas.width, H = canvas.height;
-      ctx.lineWidth   = 2.5;
-      ctx.strokeStyle = 'rgba(79,195,247,0.85)';
-      CONNECTIONS.forEach(([i, j]) => {
-        if (!lm[i] || !lm[j]) return;
+      const W=canvas.width,H=canvas.height;
+      ctx.lineWidth=2.5; ctx.strokeStyle='rgba(79,195,247,0.85)';
+      CONNECTIONS.forEach(([i,j])=>{
+        if(!lm[i]||!lm[j]) return;
         ctx.beginPath();
-        ctx.moveTo(lm[i].x * W, lm[i].y * H);
-        ctx.lineTo(lm[j].x * W, lm[j].y * H);
+        ctx.moveTo(lm[i].x*W,lm[i].y*H);
+        ctx.lineTo(lm[j].x*W,lm[j].y*H);
         ctx.stroke();
       });
-      lm.forEach(lmk => {
+      lm.forEach(lmk=>{
         ctx.beginPath();
-        ctx.arc(lmk.x * W, lmk.y * H, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle   = '#fff';
-        ctx.fill();
-        ctx.strokeStyle = '#4fc3f7';
-        ctx.lineWidth   = 2;
-        ctx.stroke();
+        ctx.arc(lmk.x*W,lmk.y*H,4.5,0,Math.PI*2);
+        ctx.fillStyle='#fff'; ctx.fill();
+        ctx.strokeStyle='#4fc3f7'; ctx.lineWidth=2; ctx.stroke();
       });
     }
 
-    // ── 推定ループ ───────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────
+    // 推定ループ
+    // ────────────────────────────────────────────────────────────
     function predictLoop() {
-      if (!poseLandmarker) return;
+      if(!poseLandmarker) return;
       const results = poseLandmarker.detectForVideo(video, performance.now());
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0,0,canvas.width,canvas.height);
 
-      if (results.landmarks?.length > 0) {
+      if(results.landmarks?.length>0) {
         const lm = results.landmarks[0];
         drawSkeleton(lm);
-        const m = calcMetrics(lm);
-        if (m) {
-          currentMetrics = m;
-          metricsBuffer.push(m);
-          frameCount++;
-          if (frameCount % 4 === 0) {
-            const keys = Object.keys(metricsBuffer[0]);
-            const avg  = {};
-            keys.forEach(k => {
-              avg[k] = Math.round(metricsBuffer.reduce((s, v) => s + v[k], 0) / metricsBuffer.length);
-            });
-            metricsBuffer = [];
-            updateMetricsUI(avg);
+
+        if(viewMode==='rom') {
+          // ROMフレーム処理
+          const mov = ROM_MOVEMENTS[romMovIdx];
+          const angle = mov.calc(lm);
+          if(angle!==null) {
+            romLiveAngle = angle;
+            if(romRecording && (romPeakAngle===null || angle>romPeakAngle)) {
+              romPeakAngle = angle;
+            }
+          }
+          // ライブ表示は毎フレーム更新（ピーク表示はフレームごとで良い）
+          updateRomDisplay();
+          // currentMetrics は記録完了後にのみ設定（保存用）
+        } else {
+          const m = calcMetrics(lm);
+          if(m) {
+            currentMetrics = m;
+            metricsBuffer.push(m);
+            frameCount++;
+            if(frameCount%4===0) {
+              const keys=Object.keys(metricsBuffer[0]);
+              const avg={};
+              keys.forEach(k=>{ avg[k]=Math.round(metricsBuffer.reduce((s,v)=>s+v[k],0)/metricsBuffer.length); });
+              metricsBuffer=[];
+              updateMetricsUI(avg);
+            }
           }
         }
       } else {
         currentMetrics = null;
         metricsBuffer  = [];
         swayHistory    = [];
-        clearMetricsUI();
+        if(viewMode==='rom') {
+          romLiveAngle = null;
+          updateRomDisplay();
+        } else {
+          clearMetricsUI();
+        }
       }
-
       animFrameId = requestAnimationFrame(predictLoop);
     }
 
-    // ── スナップショット ─────────────────────────────────────
+    // ────────────────────────────────────────────────────────────
+    // スナップショット
+    // ────────────────────────────────────────────────────────────
     function captureSnapshot() {
-      const tmp    = document.createElement('canvas');
-      tmp.width    = canvas.width;
-      tmp.height   = canvas.height;
-      const tmpCtx = tmp.getContext('2d');
-      tmpCtx.drawImage(video,  0, 0, tmp.width, tmp.height);
-      tmpCtx.drawImage(canvas, 0, 0);
+      const tmp=document.createElement('canvas');
+      tmp.width=canvas.width; tmp.height=canvas.height;
+      const tc=tmp.getContext('2d');
+      tc.drawImage(video,0,0,tmp.width,tmp.height);
+      tc.drawImage(canvas,0,0);
       return {
-        imageUrl: tmp.toDataURL('image/jpeg', 0.82),
-        metrics:  { ...currentMetrics },
-        score:    calcScore(currentMetrics, viewMode),
+        imageUrl: tmp.toDataURL('image/jpeg',0.82),
+        metrics:  {...currentMetrics},
+        score:    calcScore(currentMetrics,viewMode),
         viewMode,
       };
     }
 
-    // ── 比較レポート ─────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────
+    // 比較レポート
+    // ────────────────────────────────────────────────────────────
     function showComparison() {
       cancelAnimationFrame(animFrameId);
-
       document.getElementById('beforeImg').src = beforeData.imageUrl;
       document.getElementById('afterImg').src  = afterData.imageUrl;
-      document.getElementById('compModeLabel').textContent =
-        VIEW_MODES[beforeData.viewMode].label + ' の比較';
+      document.getElementById('compModeLabel').textContent = VIEW_MODES[beforeData.viewMode].label + ' の比較';
 
-      const delta   = afterData.score - beforeData.score;
-      const scoreEl = document.getElementById('totalScore');
-      const noteEl  = document.getElementById('scoreNote');
-      scoreEl.textContent = (delta >= 0 ? '+' : '') + delta + 'pt';
-      scoreEl.className   = 'score-number ' + (delta > 0 ? 'improved' : delta < 0 ? 'worsened' : 'unchanged');
-      noteEl.textContent  = delta > 0 ? '姿勢が改善されました！' : delta < 0 ? '姿勢スコアが低下しました。' : '変化はほぼ同じです。';
+      const delta=afterData.score-beforeData.score;
+      const scoreEl=document.getElementById('totalScore'), noteEl=document.getElementById('scoreNote');
+      scoreEl.textContent=(delta>=0?'+':'')+delta+'pt';
+      scoreEl.className='score-number '+(delta>0?'improved':delta<0?'worsened':'unchanged');
+      noteEl.textContent=delta>0?'姿勢が改善されました！':delta<0?'姿勢スコアが低下しました。':'変化はほぼ同じです。';
 
-      const tableKeys = VIEW_MODES[beforeData.viewMode].table;
-      document.getElementById('metricsTableBody').innerHTML = tableKeys.map(key => {
-        const def = METRIC_DEFS[key];
-        const bv  = beforeData.metrics[key];
-        const av  = afterData.metrics[key];
-        const d   = av - bv;
-        const improved = def.signed
-          ? Math.abs(av) < Math.abs(bv)
-          : (def.higher ? d > 0 : d < 0);
-        const cls = d === 0 ? '' : improved ? 'delta-pos' : 'delta-neg';
-        return `<div class="tbl-row">
-          <div>${def.label}</div>
-          <div>${metricFmt(key, bv)}</div>
-          <div>${metricFmt(key, av)}</div>
-          <div class="${cls}">${(d > 0 ? '+' : '') + d + def.unit}</div>
+      let rows = '';
+      if(beforeData.viewMode==='rom') {
+        // ROM比較テーブル
+        const bv=beforeData.metrics._peak, av=afterData.metrics._peak;
+        const d=av-bv;
+        const mov=ROM_MOVEMENTS[beforeData.metrics._movIdx];
+        rows = `<div class="tbl-row">
+          <div>${mov.label}</div>
+          <div>${bv}°</div><div>${av}°</div>
+          <div class="${d>0?'delta-pos':d<0?'delta-neg':''}">${(d>0?'+':'')+d}°</div>
+        </div>
+        <div class="tbl-row">
+          <div>正常可動域比</div>
+          <div>${Math.round(bv/mov.normal*100)}%</div>
+          <div>${Math.round(av/mov.normal*100)}%</div>
+          <div class="${d>0?'delta-pos':d<0?'delta-neg':''}">${(d>0?'+':'')+Math.round(d/mov.normal*100)}%</div>
         </div>`;
-      }).join('');
-
+      } else {
+        const tableKeys=VIEW_MODES[beforeData.viewMode].table;
+        rows = tableKeys.map(key=>{
+          const def=METRIC_DEFS[key];
+          const bv=beforeData.metrics[key], av=afterData.metrics[key], d=av-bv;
+          const improved=def.signed?Math.abs(av)<Math.abs(bv):(def.higher?d>0:d<0);
+          const cls=d===0?'':improved?'delta-pos':'delta-neg';
+          return `<div class="tbl-row">
+            <div>${def.label}</div>
+            <div>${metricFmt(key,bv)}</div>
+            <div>${metricFmt(key,av)}</div>
+            <div class="${cls}">${(d>0?'+':'')+d+def.unit}</div>
+          </div>`;
+        }).join('');
+      }
+      document.getElementById('metricsTableBody').innerHTML = rows;
       showScreen('comparisonScreen');
     }
 
-    // ── タブ切替 ─────────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────
+    // タブ切替
+    // ────────────────────────────────────────────────────────────
     function setViewMode(vm) {
-      viewMode      = vm;
-      metricsBuffer = [];
-      swayHistory   = [];
-      currentMetrics = null;
-
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        const isActive = btn.dataset.view === vm;
-        btn.classList.toggle('active', isActive);
-        // タブ色クラス
-        btn.classList.remove('view-side', 'view-dyn');
-        if (isActive) {
-          if (vm === 'side')    btn.classList.add('view-side');
-          if (vm === 'dynamic') btn.classList.add('view-dyn');
+      viewMode=vm; metricsBuffer=[]; swayHistory=[]; currentMetrics=null;
+      romRecording=false; romPeakAngle=null; romLiveAngle=null;
+      document.querySelectorAll('.tab-btn').forEach(btn=>{
+        const active=btn.dataset.view===vm;
+        btn.classList.toggle('active',active);
+        btn.classList.remove('view-side','view-dyn','view-rom');
+        if(active){
+          if(vm==='side')    btn.classList.add('view-side');
+          if(vm==='dynamic') btn.classList.add('view-dyn');
+          if(vm==='rom')     btn.classList.add('view-rom');
         }
       });
       renderMetricsPanel();
+      if(vm==='rom') {
+        updateRomCaptureBtn();
+      } else {
+        captureBtn.textContent = mode==='before' ? '治療前を保存する' : '治療後を保存する';
+        captureBtn.className   = mode==='before' ? 'before' : 'after';
+      }
     }
 
-    document.getElementById('viewTabs').addEventListener('click', e => {
-      const btn = e.target.closest('.tab-btn');
-      if (!btn || btn.classList.contains('locked')) return;
+    document.getElementById('viewTabs').addEventListener('click',e=>{
+      const btn=e.target.closest('.tab-btn');
+      if(!btn||btn.classList.contains('locked')) return;
       setViewMode(btn.dataset.view);
     });
 
-    // ── カメラ起動 ───────────────────────────────────────────
-    async function startCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
-      });
-      video.srcObject = stream;
-      await new Promise(resolve => video.addEventListener('loadeddata', resolve, { once: true }));
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-    }
-
-    // ── 初期化 ───────────────────────────────────────────────
-    async function init() {
-      try {
-        loadingStatus.textContent = '設定ファイルをダウンロード中...';
-        const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm'
-        );
-        loadingStatus.textContent = '骨格抽出モデルをロード中（数秒かかります）...';
-        poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
-            delegate: 'CPU'
-          },
-          runningMode: 'VIDEO',
-          numPoses: 1
-        });
-        loadingStatus.textContent = 'カメラを起動しています...';
-        await startCamera();
-        renderMetricsPanel();
-        showScreen('cameraScreen');
-        predictLoop();
-      } catch (err) {
-        loadingStatus.textContent = 'エラー発生: ' + err.message;
-        console.error(err);
+    // ────────────────────────────────────────────────────────────
+    // キャプチャボタン
+    // ────────────────────────────────────────────────────────────
+    captureBtn.addEventListener('click',()=>{
+      // ── ROM モード ─────────────────────────────────────
+      if(viewMode==='rom') {
+        if(romRecording) {
+          // 計測終了
+          romRecording=false;
+          updateRomHintRow();
+          updateRomCaptureBtn();
+          return;
+        }
+        if(romPeakAngle!==null) {
+          // 保存
+          currentMetrics = { _peak:romPeakAngle, _movIdx:romMovIdx };
+          const snap = captureSnapshot();
+          if(mode==='before') {
+            beforeData=snap;
+            mode='after';
+            modeBanner.innerHTML='<img src="miya.png" class="banner-logo" alt="">治療後の可動域を計測してください';
+            modeBanner.className='mode-banner after';
+            // 動作ボタンをロック
+            document.querySelectorAll('.rom-mov-btn').forEach(b=>b.classList.add('locked'));
+            document.querySelectorAll('.tab-btn').forEach(b=>b.classList.add('locked'));
+            romPeakAngle=null; romLiveAngle=null;
+            updateRomDisplay();
+            updateRomCaptureBtn();
+          } else {
+            afterData=snap;
+            showComparison();
+          }
+          return;
+        }
+        // 計測開始
+        romPeakAngle=null;
+        romRecording=true;
+        updateRomHintRow();
+        updateRomCaptureBtn();
+        return;
       }
-    }
 
-    // ── イベント ─────────────────────────────────────────────
-    captureBtn.addEventListener('click', () => {
-      if (!currentMetrics) {
+      // ── 通常モード ─────────────────────────────────────
+      if(!currentMetrics) {
         alert('人体が検出されていません。カメラに全身を映してください。');
         return;
       }
-      if (mode === 'before') {
-        beforeData = captureSnapshot();
-        mode       = 'after';
-        // タブをロック（前後で異なるモードの比較を防ぐ）
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.add('locked'));
-        modeBanner.innerHTML  = '<img src="miya.png" class="banner-logo" alt="">治療後の姿勢を撮影してください';
-        modeBanner.className  = 'mode-banner after';
-        captureBtn.textContent = '治療後を保存する';
-        captureBtn.className   = 'after';
+      if(mode==='before') {
+        beforeData=captureSnapshot();
+        mode='after';
+        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.add('locked'));
+        modeBanner.innerHTML='<img src="miya.png" class="banner-logo" alt="">治療後の姿勢を撮影してください';
+        modeBanner.className='mode-banner after';
+        captureBtn.textContent='治療後を保存する';
+        captureBtn.className='after';
       } else {
-        afterData = captureSnapshot();
+        afterData=captureSnapshot();
         showComparison();
       }
     });
 
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      mode           = 'before';
-      beforeData     = null;
-      afterData      = null;
-      metricsBuffer  = [];
-      swayHistory    = [];
-      currentMetrics = null;
-
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('locked'));
-      modeBanner.innerHTML   = '<img src="miya.png" class="banner-logo" alt="">治療前の姿勢を撮影してください';
-      modeBanner.className   = 'mode-banner before';
-      captureBtn.textContent = '治療前を保存する';
-      captureBtn.className   = 'before';
-
+    // ────────────────────────────────────────────────────────────
+    // リセット
+    // ────────────────────────────────────────────────────────────
+    document.getElementById('resetBtn').addEventListener('click',()=>{
+      mode='before'; beforeData=null; afterData=null;
+      metricsBuffer=[]; swayHistory=[]; currentMetrics=null;
+      romRecording=false; romPeakAngle=null; romLiveAngle=null;
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('locked'));
+      modeBanner.innerHTML='<img src="miya.png" class="banner-logo" alt="">治療前の姿勢を撮影してください';
+      modeBanner.className='mode-banner before';
       showScreen('cameraScreen');
       renderMetricsPanel();
+      if(viewMode==='rom') {
+        document.querySelectorAll('.rom-mov-btn').forEach(b=>b.classList.remove('locked'));
+        updateRomCaptureBtn();
+      } else {
+        captureBtn.textContent='治療前を保存する';
+        captureBtn.className='before';
+      }
       predictLoop();
     });
+
+    // ────────────────────────────────────────────────────────────
+    // カメラ起動・初期化
+    // ────────────────────────────────────────────────────────────
+    async function startCamera() {
+      const stream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}}
+      });
+      video.srcObject=stream;
+      await new Promise(r=>video.addEventListener('loadeddata',r,{once:true}));
+      canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+    }
+
+    async function init() {
+      try {
+        loadingStatus.textContent='設定ファイルをダウンロード中...';
+        const vision=await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm'
+        );
+        loadingStatus.textContent='骨格抽出モデルをロード中（数秒かかります）...';
+        poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
+          baseOptions:{
+            modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task',
+            delegate:'CPU'
+          },
+          runningMode:'VIDEO', numPoses:1
+        });
+        loadingStatus.textContent='カメラを起動しています...';
+        await startCamera();
+        renderMetricsPanel();
+        showScreen('cameraScreen');
+        predictLoop();
+      } catch(err) {
+        loadingStatus.textContent='エラー発生: '+err.message;
+        console.error(err);
+      }
+    }
 
     init();
   </script>
