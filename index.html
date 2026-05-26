@@ -14,7 +14,6 @@
     }
 
     /* ── スクリーン管理 ── */
-    /* 100dvh = アドレスバーの表示/非表示に追随する動的ビューポート高さ */
     .screen { display: none; flex-direction: column; min-height: 100dvh; }
     .screen.active { display: flex; }
 
@@ -34,11 +33,10 @@
     /* ── カメラ画面 ── */
     #cameraScreen {
       background: #f0f4fb;
-      /* ボタンがアドレスバーに隠れないようにiOS下端セーフエリア分を確保 */
       padding-bottom: env(safe-area-inset-bottom);
     }
 
-    /* タイトルバー：白ベース */
+    /* タイトルバー */
     .mode-banner {
       padding: 11px 13px;
       display: flex;
@@ -56,7 +54,30 @@
     .mode-banner.after  { color: #2e7d32; border-color: #2e7d32; }
     .banner-logo { width: 28px; height: 28px; object-fit: contain; border-radius: 4px; }
 
-    /* 映像エリア：角丸・余白あり */
+    /* 計測モードタブ */
+    #viewTabs {
+      display: flex;
+      background: #fff;
+      border-bottom: 1px solid #e0e6f0;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 9px 4px 7px;
+      border: none;
+      background: none;
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #999;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn.active           { color: #1565c0; border-bottom-color: #1565c0; }
+    .tab-btn.locked           { color: #bbb; cursor: default; }
+    .tab-btn.active.view-side { color: #6a1b9a; border-bottom-color: #6a1b9a; }
+    .tab-btn.active.view-dyn  { color: #e65100; border-bottom-color: #e65100; }
+
+    /* 映像エリア */
     #videoContainer {
       position: relative;
       margin: 10px 12px;
@@ -73,18 +94,17 @@
       pointer-events: none;
     }
 
-    /* ── リアルタイム指標パネル：明るい背景 ── */
+    /* 計測値パネル */
     #metricsPanel {
       background: #fff;
       border-top: 1px solid #e0e6f0;
       padding: 10px 12px;
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
       gap: 6px;
     }
     .metric-item { text-align: center; }
-    .metric-label { font-size: 0.62rem; color: #888; margin-bottom: 2px; }
-    .metric-value { font-size: 1.15rem; font-weight: bold; }
+    .metric-label { font-size: 0.6rem; color: #888; margin-bottom: 2px; }
+    .metric-value { font-size: 1.1rem; font-weight: bold; }
     .good    { color: #388e3c; }
     .warn    { color: #e65100; }
     .bad     { color: #c62828; }
@@ -118,8 +138,8 @@
       font-size: 0.8rem; font-weight: bold;
       margin-top: 6px; padding: 4px 8px; border-radius: 4px; display: inline-block;
     }
-    .before-label { background: #1565c0; }
-    .after-label  { background: #2e7d32; }
+    .before-label { background: #1565c0; color: #fff; }
+    .after-label  { background: #2e7d32; color: #fff; }
 
     .score-card {
       background: rgba(255,255,255,0.07);
@@ -171,25 +191,20 @@
 
   <!-- カメラ画面 -->
   <div id="cameraScreen" class="screen">
-    <div id="modeBanner" class="mode-banner before"><img src="miya.png" class="banner-logo" alt="">治療前の姿勢を撮影してください</div>
+    <div id="modeBanner" class="mode-banner before">
+      <img src="miya.png" class="banner-logo" alt="">治療前の姿勢を撮影してください
+    </div>
+    <!-- 計測モード切替タブ -->
+    <div id="viewTabs">
+      <button class="tab-btn active" data-view="front">正面</button>
+      <button class="tab-btn" data-view="side">横向き</button>
+      <button class="tab-btn" data-view="dynamic">動的</button>
+    </div>
     <div id="videoContainer">
       <video id="webcam" autoplay playsinline muted></video>
       <canvas id="overlayCanvas"></canvas>
     </div>
-    <div id="metricsPanel">
-      <div class="metric-item">
-        <div class="metric-label">頭部前傾角</div>
-        <div class="metric-value neutral" id="m-head">--</div>
-      </div>
-      <div class="metric-item">
-        <div class="metric-label">体幹傾斜角</div>
-        <div class="metric-value neutral" id="m-trunk">--</div>
-      </div>
-      <div class="metric-item">
-        <div class="metric-label">肩の水平差</div>
-        <div class="metric-value neutral" id="m-shoulder">--</div>
-      </div>
-    </div>
+    <div id="metricsPanel"></div>
     <button id="captureBtn" class="before">治療前を保存する</button>
   </div>
 
@@ -197,7 +212,7 @@
   <div id="comparisonScreen" class="screen">
     <div class="comp-header">
       <h2>姿勢改善レポート</h2>
-      <p>治療前後の姿勢データを比較しています</p>
+      <p id="compModeLabel">治療前後の姿勢データを比較しています</p>
     </div>
 
     <div class="image-row">
@@ -234,23 +249,69 @@
     import { PoseLandmarker, FilesetResolver } from
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8";
 
+    // ── 指標定義 ─────────────────────────────────────────────
+    // higher: 大きいほど良い / good,warn: 閾値（higherの場合は下限、!higherの場合は絶対値上限）
+    const METRIC_DEFS = {
+      // 正面
+      headForward: { label: '頭部前傾角',   unit: '°',  higher: true,  signed: false, good: 160, warn: 140 },
+      trunk:       { label: '体幹傾斜角',   unit: '°',  higher: false, signed: false, good: 5,   warn: 15  },
+      shoulder:    { label: '肩の水平差',   unit: '%',  higher: false, signed: true,  good: 3,   warn: 6   },
+      pelvis:      { label: '骨盤の水平差', unit: '%',  higher: false, signed: true,  good: 3,   warn: 6   },
+      headTilt:    { label: '頭部傾斜角',   unit: '°',  higher: false, signed: true,  good: 2,   warn: 5   },
+      trunkShift:  { label: '体幹側方傾斜', unit: '%',  higher: false, signed: true,  good: 3,   warn: 8   },
+      // 横向き
+      pelvisTilt:  { label: '骨盤傾斜角',   unit: '°',  higher: false, signed: true,  good: 5,   warn: 15  },
+      earDev:      { label: '耳の垂線ズレ', unit: '%',  higher: false, signed: true,  good: 5,   warn: 15  },
+      shoDev:      { label: '肩の垂線ズレ', unit: '%',  higher: false, signed: true,  good: 5,   warn: 15  },
+      kneeAngle:   { label: '膝関節角',     unit: '°',  higher: true,  signed: false, good: 170, warn: 150 },
+      // 動的
+      swayX:       { label: '左右の揺らぎ', unit: '',   higher: false, signed: false, good: 2,   warn: 5   },
+      swayY:       { label: '前後の揺らぎ', unit: '',   higher: false, signed: false, good: 2,   warn: 5   },
+      stability:   { label: '安定性',       unit: 'pt', higher: true,  signed: false, good: 80,  warn: 60  },
+    };
+
+    // パネル表示キー／比較テーブルキー
+    const VIEW_MODES = {
+      front:   {
+        label:  '正面（前額面）',
+        hint:   '正面から撮影してください',
+        panel:  ['shoulder', 'pelvis', 'headTilt'],
+        table:  ['headForward', 'trunk', 'shoulder', 'pelvis', 'headTilt', 'trunkShift'],
+      },
+      side:    {
+        label:  '横向き（矢状面）',
+        hint:   '真横から撮影してください',
+        panel:  ['pelvisTilt', 'earDev', 'kneeAngle'],
+        table:  ['pelvisTilt', 'earDev', 'shoDev', 'kneeAngle'],
+      },
+      dynamic: {
+        label:  '動的（安定性）',
+        hint:   '10秒間静止して立ってください',
+        panel:  ['swayX', 'swayY', 'stability'],
+        table:  ['swayX', 'swayY', 'stability'],
+      },
+    };
+
     // ── 状態 ────────────────────────────────────────────────
-    let poseLandmarker = null;
-    let mode = 'before';
-    let beforeData = null;
-    let afterData  = null;
-    let currentMetrics = null;
-    let animFrameId = null;
-    let metricsBuffer = [];   // 4フレーム分の蓄積
-    let frameCount = 0;       // フレームカウンタ
+    let poseLandmarker  = null;
+    let mode            = 'before';      // 治療前 / 治療後
+    let viewMode        = 'front';       // front / side / dynamic
+    let beforeData      = null;
+    let afterData       = null;
+    let currentMetrics  = null;
+    let animFrameId     = null;
+    let metricsBuffer   = [];
+    let frameCount      = 0;
+    let swayHistory     = [];            // 動的モード用：鼻の座標履歴
 
     // ── DOM ─────────────────────────────────────────────────
-    const video       = document.getElementById('webcam');
-    const canvas      = document.getElementById('overlayCanvas');
-    const ctx         = canvas.getContext('2d');
+    const video         = document.getElementById('webcam');
+    const canvas        = document.getElementById('overlayCanvas');
+    const ctx           = canvas.getContext('2d');
     const loadingStatus = document.getElementById('loadingStatus');
-    const modeBanner  = document.getElementById('modeBanner');
-    const captureBtn  = document.getElementById('captureBtn');
+    const modeBanner    = document.getElementById('modeBanner');
+    const captureBtn    = document.getElementById('captureBtn');
+    const metricsPanel  = document.getElementById('metricsPanel');
 
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -259,25 +320,14 @@
 
     // ── スケルトン接続定義 ──────────────────────────────────
     const CONNECTIONS = [
-      // 胴体
       [11,12],[11,23],[12,24],[23,24],
-      // 左腕
-      [11,13],[13,15],
-      // 右腕
-      [12,14],[14,16],
-      // 左脚
-      [23,25],[25,27],
-      // 右脚
-      [24,26],[26,28],
-      // 首 (耳→肩)
-      [7,11],[8,12],
-      // 顔中心→肩中心 (近似)
-      [0,11],[0,12],
+      [11,13],[13,15],[12,14],[14,16],
+      [23,25],[25,27],[24,26],[26,28],
+      [7,11],[8,12],[0,11],[0,12],
     ];
 
-    // ── 姿勢指標計算 ────────────────────────────────────────
+    // ── ユーティリティ ───────────────────────────────────────
     function angleDeg(a, b, c) {
-      // 点bにおける角度（ba→bc）
       const ba = { x: a.x - b.x, y: a.y - b.y };
       const bc = { x: c.x - b.x, y: c.y - b.y };
       const dot = ba.x * bc.x + ba.y * bc.y;
@@ -286,59 +336,162 @@
       return Math.acos(Math.min(1, Math.max(-1, dot / mag))) * 180 / Math.PI;
     }
 
-    function midpoint(a, b) {
+    function mid(a, b) {
       return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     }
 
+    // ── 指標計算（モード別） ─────────────────────────────────
     function calcMetrics(lm) {
-      const lEar = lm[7];  const rEar = lm[8];
-      const lSho = lm[11]; const rSho = lm[12];
-      const lHip = lm[23]; const rHip = lm[24];
+      if (viewMode === 'front')   return calcFront(lm);
+      if (viewMode === 'side')    return calcSide(lm);
+      return calcDynamic(lm);
+    }
 
-      const earMid = midpoint(lEar, rEar);
-      const shoMid = midpoint(lSho, rSho);
-      const hipMid = midpoint(lHip, rHip);
+    function calcFront(lm) {
+      const lEar = lm[7], rEar = lm[8];
+      const lSho = lm[11], rSho = lm[12];
+      const lHip = lm[23], rHip = lm[24];
+      const lAnk = lm[27], rAnk = lm[28];
 
-      // 身長プロキシ（肩〜股関節距離）で正規化
-      const bodyH = Math.hypot(shoMid.x - hipMid.x, shoMid.y - hipMid.y);
+      const earMid   = mid(lEar, rEar);
+      const shoMid   = mid(lSho, rSho);
+      const hipMid   = mid(lHip, rHip);
+      const ankMid   = mid(lAnk, rAnk);
+      const bodyH    = Math.hypot(shoMid.x - hipMid.x, shoMid.y - hipMid.y);
       if (bodyH < 0.01) return null;
 
-      // 1. 頭部前傾角: 耳中点→肩中点→股関節中点 の角度（180°に近いほど良好）
-      const headAngle = angleDeg(earMid, shoMid, hipMid);
+      // 頭部前傾角: 耳中→肩中→腰中（180°が理想）
+      const headForward = Math.round(angleDeg(earMid, shoMid, hipMid));
+      // 体幹傾斜角: 垂直vs肩中→腰中（0°が理想）
+      const trunk       = Math.round(angleDeg({ x: shoMid.x, y: shoMid.y - 1 }, shoMid, hipMid));
+      // 肩の水平差: +＝左肩が高い、−＝右肩が高い
+      const shoulder    = Math.round((rSho.y - lSho.y) / bodyH * 100);
+      // 骨盤の水平差: +＝左骨盤が高い
+      const pelvis      = Math.round((rHip.y - lHip.y) / bodyH * 100);
+      // 頭部傾斜角: 耳ラインの水平からの傾き
+      const headTilt    = Math.round(Math.atan2(rEar.y - lEar.y, rEar.x - lEar.x) * 180 / Math.PI);
+      // 体幹側方傾斜: 肩中心vs足中心の水平ズレ（+＝右寄り）
+      const trunkShift  = Math.round((shoMid.x - ankMid.x) / bodyH * 100);
 
-      // 2. 体幹傾斜角: 肩中点→股関節 を垂直基準で測定（0°=直立、絶対値）
-      const verticalRef = { x: shoMid.x, y: shoMid.y - 1 };
-      const trunkAngle = Math.round(angleDeg(verticalRef, shoMid, hipMid));
-
-      // 3. 肩の水平差: 左右の肩の高さの差を身長比で正規化（+＝左肩が高い、-＝右肩が高い）
-      const shoulderDiff = Math.round((rSho.y - lSho.y) / bodyH * 100);
-
-      return {
-        headForward:   Math.round(headAngle),
-        trunk:         trunkAngle,
-        shoulderLevel: shoulderDiff,
-      };
+      return { headForward, trunk, shoulder, pelvis, headTilt, trunkShift };
     }
 
-    // 0〜100点の総合スコア
-    function calcPostureScore(m) {
-      // 頭部: 180°=100pt, 120°=0pt
-      const headScore     = Math.max(0, Math.min(100, (m.headForward - 120) / 60 * 100));
-      // 体幹: 0°=100pt, 30°=0pt
-      const trunkScore    = Math.max(0, Math.min(100, (1 - m.trunk / 30) * 100));
-      // 肩水平: 0%=100pt, 10%=0pt（絶対値で評価）
-      const shoulderScore = Math.max(0, Math.min(100, (1 - Math.abs(m.shoulderLevel) / 10) * 100));
-      return Math.round(headScore * 0.4 + trunkScore * 0.4 + shoulderScore * 0.2);
+    function calcSide(lm) {
+      const lEar = lm[7], rEar = lm[8];
+      const lSho = lm[11], rSho = lm[12];
+      const lHip = lm[23], rHip = lm[24];
+      const lKne = lm[25], rKne = lm[26];
+      const lAnk = lm[27], rAnk = lm[28];
+
+      const earMid  = mid(lEar, rEar);
+      const shoMid  = mid(lSho, rSho);
+      const hipMid  = mid(lHip, rHip);
+      const kneMid  = mid(lKne, rKne);
+      const ankMid  = mid(lAnk, rAnk);
+      const bodyLen = Math.hypot(earMid.x - ankMid.x, earMid.y - ankMid.y);
+      if (bodyLen < 0.05) return null;
+
+      // 骨盤傾斜角: 腰→膝ラインの垂直からのズレ（+＝前傾/反り腰、−＝後傾/猫背）
+      const pelvisTilt = Math.round(
+        Math.atan2(kneMid.x - hipMid.x, hipMid.y - kneMid.y) * 180 / Math.PI
+      );
+      // 耳・肩の垂線ズレ: 足首を基準とした水平方向のズレ（%）
+      const earDev = Math.round((earMid.x - ankMid.x) / bodyLen * 100);
+      const shoDev = Math.round((shoMid.x - ankMid.x) / bodyLen * 100);
+      // 膝関節角: 腰→膝→足首（180°＝完全伸展が理想）
+      const lKA = angleDeg(lHip, lKne, lAnk);
+      const rKA = angleDeg(rHip, rKne, rAnk);
+      const kneeAngle = Math.round((lKA + rKA) / 2);
+
+      return { pelvisTilt, earDev, shoDev, kneeAngle };
     }
 
-    // ── 描画 ────────────────────────────────────────────────
+    function calcDynamic(lm) {
+      const nose = lm[0];
+      swayHistory.push({ x: nose.x, y: nose.y });
+      if (swayHistory.length > 90) swayHistory.shift(); // 約3秒分
+      if (swayHistory.length < 10) return null;
+
+      const n  = swayHistory.length;
+      const mX = swayHistory.reduce((s, p) => s + p.x, 0) / n;
+      const mY = swayHistory.reduce((s, p) => s + p.y, 0) / n;
+      const swayX = Math.round(Math.sqrt(swayHistory.reduce((s, p) => s + (p.x - mX) ** 2, 0) / n) * 1000);
+      const swayY = Math.round(Math.sqrt(swayHistory.reduce((s, p) => s + (p.y - mY) ** 2, 0) / n) * 1000);
+      const stability = Math.max(0, Math.round((1 - Math.hypot(swayX, swayY) / 15) * 100));
+
+      return { swayX, swayY, stability };
+    }
+
+    // ── スコア計算（モード別） ───────────────────────────────
+    function calcScore(m, vm) {
+      const c = v => Math.max(0, Math.min(100, v));
+      if (vm === 'front') {
+        return Math.round(
+          c((m.headForward - 120) / 60 * 100) * 0.2 +
+          c((1 - m.trunk / 30) * 100)         * 0.2 +
+          c((1 - Math.abs(m.shoulder)  / 10) * 100) * 0.2 +
+          c((1 - Math.abs(m.pelvis)    / 10) * 100) * 0.2 +
+          c((1 - Math.abs(m.headTilt)  / 10) * 100) * 0.1 +
+          c((1 - Math.abs(m.trunkShift)/ 10) * 100) * 0.1
+        );
+      }
+      if (vm === 'side') {
+        return Math.round(
+          c((1 - Math.abs(m.pelvisTilt) / 30) * 100) * 0.35 +
+          c((1 - Math.abs(m.earDev)     / 20) * 100) * 0.30 +
+          c((1 - Math.abs(m.shoDev)     / 20) * 100) * 0.15 +
+          c((1 - Math.abs(180 - m.kneeAngle) / 30) * 100) * 0.20
+        );
+      }
+      return m.stability; // dynamic
+    }
+
+    // ── パネルUI ─────────────────────────────────────────────
+    function renderMetricsPanel() {
+      const keys = VIEW_MODES[viewMode].panel;
+      metricsPanel.style.gridTemplateColumns = `repeat(${keys.length}, 1fr)`;
+      metricsPanel.innerHTML = keys.map(key => {
+        const def = METRIC_DEFS[key];
+        return `<div class="metric-item">
+          <div class="metric-label">${def.label}</div>
+          <div class="metric-value neutral" id="m-${key}">--</div>
+        </div>`;
+      }).join('');
+    }
+
+    function metricColor(key, value) {
+      const def = METRIC_DEFS[key];
+      const abs = Math.abs(value);
+      if (def.higher) return value >= def.good ? 'good' : value >= def.warn ? 'warn' : 'bad';
+      return abs <= def.good ? 'good' : abs <= def.warn ? 'warn' : 'bad';
+    }
+
+    function metricFmt(key, value) {
+      const def = METRIC_DEFS[key];
+      return (def.signed && value > 0 ? '+' : '') + value + def.unit;
+    }
+
+    function updateMetricsUI(m) {
+      VIEW_MODES[viewMode].panel.forEach(key => {
+        const el = document.getElementById('m-' + key);
+        if (!el || m[key] === undefined) return;
+        el.textContent  = metricFmt(key, m[key]);
+        el.className    = 'metric-value ' + metricColor(key, m[key]);
+      });
+    }
+
+    function clearMetricsUI() {
+      document.querySelectorAll('.metric-value').forEach(el => {
+        el.textContent = '--';
+        el.className   = 'metric-value neutral';
+      });
+    }
+
+    // ── スケルトン描画 ───────────────────────────────────────
     function drawSkeleton(lm) {
-      const W = canvas.width;
-      const H = canvas.height;
-
-      // 接続線
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = 'rgba(79, 195, 247, 0.85)';
+      const W = canvas.width, H = canvas.height;
+      ctx.lineWidth   = 2.5;
+      ctx.strokeStyle = 'rgba(79,195,247,0.85)';
       CONNECTIONS.forEach(([i, j]) => {
         if (!lm[i] || !lm[j]) return;
         ctx.beginPath();
@@ -346,54 +499,15 @@
         ctx.lineTo(lm[j].x * W, lm[j].y * H);
         ctx.stroke();
       });
-
-      // 関節点
       lm.forEach(lmk => {
         ctx.beginPath();
         ctx.arc(lmk.x * W, lmk.y * H, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle   = '#fff';
         ctx.fill();
         ctx.strokeStyle = '#4fc3f7';
-        ctx.lineWidth = 2;
+        ctx.lineWidth   = 2;
         ctx.stroke();
       });
-    }
-
-    function setMetricEl(id, text, cls) {
-      const el = document.getElementById(id);
-      el.textContent = text;
-      el.className = 'metric-value ' + cls;
-    }
-
-    function updateMetricsUI(m) {
-      setMetricEl('m-head',
-        m.headForward + '°',
-        m.headForward >= 160 ? 'good' : m.headForward >= 140 ? 'warn' : 'bad');
-      setMetricEl('m-trunk',
-        m.trunk + '°',
-        m.trunk <= 5 ? 'good' : m.trunk <= 15 ? 'warn' : 'bad');
-      setMetricEl('m-shoulder',
-        (m.shoulderLevel > 0 ? '+' : '') + m.shoulderLevel + '%',
-        Math.abs(m.shoulderLevel) <= 3 ? 'good' : Math.abs(m.shoulderLevel) <= 6 ? 'warn' : 'bad');
-    }
-
-    function clearMetricsUI() {
-      ['m-head','m-trunk','m-shoulder'].forEach(id => setMetricEl(id, '--', 'neutral'));
-    }
-
-    // ── スナップショット取得 ─────────────────────────────────
-    function captureSnapshot() {
-      const tmp = document.createElement('canvas');
-      tmp.width  = canvas.width;
-      tmp.height = canvas.height;
-      const tmpCtx = tmp.getContext('2d');
-      tmpCtx.drawImage(video,  0, 0, tmp.width, tmp.height);
-      tmpCtx.drawImage(canvas, 0, 0);
-      return {
-        imageUrl: tmp.toDataURL('image/jpeg', 0.82),
-        metrics:  { ...currentMetrics },
-        score:    calcPostureScore(currentMetrics),
-      };
     }
 
     // ── 推定ループ ───────────────────────────────────────────
@@ -410,74 +524,104 @@
           currentMetrics = m;
           metricsBuffer.push(m);
           frameCount++;
-          // 4フレームごとに平均を計算してUIを更新
           if (frameCount % 4 === 0) {
-            const avg = {
-              headForward:   Math.round(metricsBuffer.reduce((s, v) => s + v.headForward,   0) / metricsBuffer.length),
-              trunk:         Math.round(metricsBuffer.reduce((s, v) => s + v.trunk,         0) / metricsBuffer.length),
-              shoulderLevel: Math.round(metricsBuffer.reduce((s, v) => s + v.shoulderLevel, 0) / metricsBuffer.length),
-            };
+            const keys = Object.keys(metricsBuffer[0]);
+            const avg  = {};
+            keys.forEach(k => {
+              avg[k] = Math.round(metricsBuffer.reduce((s, v) => s + v[k], 0) / metricsBuffer.length);
+            });
             metricsBuffer = [];
             updateMetricsUI(avg);
           }
         }
       } else {
         currentMetrics = null;
-        metricsBuffer = [];
+        metricsBuffer  = [];
+        swayHistory    = [];
         clearMetricsUI();
       }
 
       animFrameId = requestAnimationFrame(predictLoop);
     }
 
-    // ── 比較レポート表示 ─────────────────────────────────────
+    // ── スナップショット ─────────────────────────────────────
+    function captureSnapshot() {
+      const tmp    = document.createElement('canvas');
+      tmp.width    = canvas.width;
+      tmp.height   = canvas.height;
+      const tmpCtx = tmp.getContext('2d');
+      tmpCtx.drawImage(video,  0, 0, tmp.width, tmp.height);
+      tmpCtx.drawImage(canvas, 0, 0);
+      return {
+        imageUrl: tmp.toDataURL('image/jpeg', 0.82),
+        metrics:  { ...currentMetrics },
+        score:    calcScore(currentMetrics, viewMode),
+        viewMode,
+      };
+    }
+
+    // ── 比較レポート ─────────────────────────────────────────
     function showComparison() {
       cancelAnimationFrame(animFrameId);
 
       document.getElementById('beforeImg').src = beforeData.imageUrl;
       document.getElementById('afterImg').src  = afterData.imageUrl;
+      document.getElementById('compModeLabel').textContent =
+        VIEW_MODES[beforeData.viewMode].label + ' の比較';
 
-      const delta = afterData.score - beforeData.score;
+      const delta   = afterData.score - beforeData.score;
       const scoreEl = document.getElementById('totalScore');
       const noteEl  = document.getElementById('scoreNote');
       scoreEl.textContent = (delta >= 0 ? '+' : '') + delta + 'pt';
-      if (delta > 0) {
-        scoreEl.className = 'score-number improved';
-        noteEl.textContent = '姿勢が改善されました！';
-      } else if (delta < 0) {
-        scoreEl.className = 'score-number worsened';
-        noteEl.textContent = '姿勢スコアが低下しました。';
-      } else {
-        scoreEl.className = 'score-number unchanged';
-        noteEl.textContent = '変化はほぼ同じです。';
-      }
+      scoreEl.className   = 'score-number ' + (delta > 0 ? 'improved' : delta < 0 ? 'worsened' : 'unchanged');
+      noteEl.textContent  = delta > 0 ? '姿勢が改善されました！' : delta < 0 ? '姿勢スコアが低下しました。' : '変化はほぼ同じです。';
 
-      const METRICS_DEF = [
-        { label: '頭部前傾角', key: 'headForward',  unit: '°', higherIsBetter: true,  signed: false },
-        { label: '体幹傾斜角', key: 'trunk',         unit: '°', higherIsBetter: false, signed: false },
-        { label: '肩の水平差', key: 'shoulderLevel', unit: '%', higherIsBetter: false, signed: true  },
-      ];
-      document.getElementById('metricsTableBody').innerHTML = METRICS_DEF.map(def => {
-        const bv = beforeData.metrics[def.key];
-        const av = afterData.metrics[def.key];
-        const d  = av - bv;
-        // 体幹は絶対値が小さくなれば改善
+      const tableKeys = VIEW_MODES[beforeData.viewMode].table;
+      document.getElementById('metricsTableBody').innerHTML = tableKeys.map(key => {
+        const def = METRIC_DEFS[key];
+        const bv  = beforeData.metrics[key];
+        const av  = afterData.metrics[key];
+        const d   = av - bv;
         const improved = def.signed
           ? Math.abs(av) < Math.abs(bv)
-          : (def.higherIsBetter ? d > 0 : d < 0);
-        const cls = (d === 0) ? '' : improved ? 'delta-pos' : 'delta-neg';
-        const fmt = v => (def.signed && v > 0 ? '+' : '') + v + def.unit;
-        const dStr = (d > 0 ? '+' : '') + d + def.unit;
+          : (def.higher ? d > 0 : d < 0);
+        const cls = d === 0 ? '' : improved ? 'delta-pos' : 'delta-neg';
         return `<div class="tbl-row">
           <div>${def.label}</div>
-          <div>${fmt(bv)}</div>
-          <div>${fmt(av)}</div>
-          <div class="${cls}">${dStr}</div>
+          <div>${metricFmt(key, bv)}</div>
+          <div>${metricFmt(key, av)}</div>
+          <div class="${cls}">${(d > 0 ? '+' : '') + d + def.unit}</div>
         </div>`;
       }).join('');
 
       showScreen('comparisonScreen');
     }
+
+    // ── タブ切替 ─────────────────────────────────────────────
+    function setViewMode(vm) {
+      viewMode      = vm;
+      metricsBuffer = [];
+      swayHistory   = [];
+      currentMetrics = null;
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        const isActive = btn.dataset.view === vm;
+        btn.classList.toggle('active', isActive);
+        // タブ色クラス
+        btn.classList.remove('view-side', 'view-dyn');
+        if (isActive) {
+          if (vm === 'side')    btn.classList.add('view-side');
+          if (vm === 'dynamic') btn.classList.add('view-dyn');
+        }
+      });
+      renderMetricsPanel();
+    }
+
+    document.getElementById('viewTabs').addEventListener('click', e => {
+      const btn = e.target.closest('.tab-btn');
+      if (!btn || btn.classList.contains('locked')) return;
+      setViewMode(btn.dataset.view);
+    });
 
     // ── カメラ起動 ───────────────────────────────────────────
     async function startCamera() {
@@ -497,7 +641,6 @@
         const vision = await FilesetResolver.forVisionTasks(
           'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm'
         );
-
         loadingStatus.textContent = '骨格抽出モデルをロード中（数秒かかります）...';
         poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
@@ -507,9 +650,9 @@
           runningMode: 'VIDEO',
           numPoses: 1
         });
-
         loadingStatus.textContent = 'カメラを起動しています...';
         await startCamera();
+        renderMetricsPanel();
         showScreen('cameraScreen');
         predictLoop();
       } catch (err) {
@@ -526,11 +669,13 @@
       }
       if (mode === 'before') {
         beforeData = captureSnapshot();
-        mode = 'after';
-        modeBanner.innerHTML = '<img src="miya.png" class="banner-logo" alt="">治療後の姿勢を撮影してください';
-        modeBanner.className = 'mode-banner after';
+        mode       = 'after';
+        // タブをロック（前後で異なるモードの比較を防ぐ）
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.add('locked'));
+        modeBanner.innerHTML  = '<img src="miya.png" class="banner-logo" alt="">治療後の姿勢を撮影してください';
+        modeBanner.className  = 'mode-banner after';
         captureBtn.textContent = '治療後を保存する';
-        captureBtn.className = 'after';
+        captureBtn.className   = 'after';
       } else {
         afterData = captureSnapshot();
         showComparison();
@@ -538,14 +683,21 @@
     });
 
     document.getElementById('resetBtn').addEventListener('click', () => {
-      mode = 'before';
-      beforeData = null;
-      afterData  = null;
-      modeBanner.innerHTML = '<img src="miya.png" class="banner-logo" alt="">治療前の姿勢を撮影してください';
-      modeBanner.className = 'mode-banner before';
+      mode           = 'before';
+      beforeData     = null;
+      afterData      = null;
+      metricsBuffer  = [];
+      swayHistory    = [];
+      currentMetrics = null;
+
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('locked'));
+      modeBanner.innerHTML   = '<img src="miya.png" class="banner-logo" alt="">治療前の姿勢を撮影してください';
+      modeBanner.className   = 'mode-banner before';
       captureBtn.textContent = '治療前を保存する';
-      captureBtn.className = 'before';
+      captureBtn.className   = 'before';
+
       showScreen('cameraScreen');
+      renderMetricsPanel();
       predictLoop();
     });
 
